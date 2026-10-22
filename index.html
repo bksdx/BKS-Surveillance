@@ -39,9 +39,26 @@
       border-radius: 8px;
       overflow: hidden;
       box-shadow: 0 4px 20px rgba(0,0,0,0.8);
-      margin-bottom: 16px;
+      margin-bottom: 8px;
     }
     .player-container iframe { width: 100%; height: 100%; border: none; display: block; }
+
+    .player-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .player-controls .btn-audio {
+      background: var(--yellow);
+      color: #000;
+    }
+    .player-controls .note {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
 
     .notice-box {
       background: #000;
@@ -241,10 +258,21 @@
   <!-- 1. プレイヤー -->
   <div class="player-container">
     <iframe
-      src="https://player.kick.com/tsubanyan?autoplay=true"
+      id="kickPlayer"
+      src="https://player.kick.com/tsubanyan?autoplay=true&muted=true"
       allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
       allowfullscreen="true">
     </iframe>
+  </div>
+
+  <!-- プレイヤー操作（音声有効化） -->
+  <div class="player-controls">
+    <button id="enableAudio" class="btn btn-audio">音声を有効にする</button>
+    <span class="note">
+      ブラウザの自動再生ポリシーにより、初期状態はミュートで自動再生されます。
+      「音声を有効にする」を押すと音声付きで再読み込みします。
+      プレイヤー内のスピーカーアイコンでも解除できます。
+    </span>
   </div>
 
   <!-- 2. 証拠記録ツール -->
@@ -582,6 +610,15 @@ async function sha256Hex(arrayBuffer) {
   return [...new Uint8Array(hashBuffer)]
     .map(b => b.toString(16).padStart(2, '0')).join('');
 }
+
+/* ============================================================
+   音声の有効化（ユーザー操作をトリガーに再読み込み）
+============================================================ */
+$('enableAudio').addEventListener('click', () => {
+  const iframe = $('kickPlayer');
+  iframe.src = 'https://player.kick.com/tsubanyan?autoplay=true&muted=false';
+  showToast('音声付きで再読み込みしました');
+});
 
 /* ============================================================
    VOD・クリップURLのローカル保存
