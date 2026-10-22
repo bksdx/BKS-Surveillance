@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>バクソ配信監視</title>
+  <title>バクソ 配信監視</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <style>
     :root {
@@ -164,7 +164,7 @@
 
   <!-- ② 証拠記録ツール -->
   <div class="evidence-tools">
-    <h3>📋 証拠記録ツール</h3>
+    <h3>📋 証拠記録ツール（監視対象：バクソ）</h3>
 
     <div class="btn-row">
       <button id="startRec" class="btn btn-rec">🔴 証拠録画を開始</button>
@@ -216,7 +216,7 @@
 
   <!-- ④ 通報チェックリスト -->
   <div class="checklist">
-    <h3>✅ 通報前チェックリスト</h3>
+    <h3>✅ 通報前チェックリスト（バクソ）</h3>
     <label><input type="checkbox" id="chk1"> スクリーンショットまたは録画を保存した</label>
     <label><input type="checkbox" id="chk2"> 問題発言のタイムスタンプを記録した</label>
     <label><input type="checkbox" id="chk3"> VODまたはクリップのURLを控えた</label>
@@ -230,11 +230,11 @@
     <input type="url" id="clipUrl" placeholder="クリップURL（任意）">
   </div>
 
-  <!-- ⑥ フッター注記（免責・利用範囲・通報手順など） -->
+  <!-- ⑥ フッター注記 -->
   <div class="footer-notes">
     <h3>免責事項</h3>
     <p>
-      本サイトは非公式の監視ツールであり、Kickおよび配信者とは一切関係ありません。
+      本サイトは非公式の監視ツールであり、Kickおよび配信者（バクソ）とは一切関係ありません。
       非公式APIの仕様変更・停止、ブラウザの制限等により機能が利用できなくなる場合がありますが、
       当方は一切の責任を負いません。
     </p>
@@ -390,7 +390,7 @@ $('startRec').addEventListener('click', async () => {
       const arrayBuffer = await blob.arrayBuffer();
       const hash = await sha256Hex(arrayBuffer);
       const meta = [
-        '=== 証拠記録メタデータ ===',
+        '=== 証拠記録メタデータ（監視対象：バクソ） ===',
         `ページ読み込み: ${isoLocal(pageLoadedAt)}`,
         `録画開始: ${isoLocal(recordingStartTime)}`,
         `録画停止: ${isoLocal(recordingStopTime)}`,
@@ -526,7 +526,7 @@ $('downloadZip').addEventListener('click', async () => {
 
     // メタデータ
     const meta = [
-      '=== 証拠パッケージ ===',
+      '=== 証拠パッケージ（監視対象：バクソ） ===',
       `ページ読み込み: ${isoLocal(pageLoadedAt)}`,
       `録画ファイル: ${lastRecordingName}`,
       `VOD URL: ${$('vodUrl').value.trim() || '(未入力)'}`,
@@ -556,8 +556,8 @@ $('downloadZip').addEventListener('click', async () => {
 $('copyReport').addEventListener('click', async () => {
   const lines = [
     '=== Kick 通報情報 ===',
-    `チャンネル: tsubanyan`,
-    `配信URL: https://kick.com/tsubanyan`,
+    `監視対象: バクソ`,
+    `チャンネルURL: https://kick.com/tsubanyan`,
     `録画開始: ${recordingStartTime ? isoLocal(recordingStartTime) : '(未録画)'}`,
     `配信タイムスタンプ: ${$('streamTime').value.trim() || '(未入力)'}`,
     `VOD URL: ${$('vodUrl').value.trim() || '(未入力)'}`,
