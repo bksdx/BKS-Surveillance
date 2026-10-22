@@ -3,117 +3,154 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>tsubanyan 配信監視</title>
+  <title>バクソ配信監視</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <style>
+    :root {
+      --bg: #000;
+      --panel: #111;
+      --border: #333;
+      --text: #e0e0e0;
+      --muted: #888;
+      --red: #ff0000;
+      --green: #53fc18;
+      --yellow: #ffb74d;
+    }
+    * { box-sizing: border-box; }
     body {
       margin: 0;
-      /* 背景を黒に変更 */
-      background-color: #000;
-      color: #fff;
-      font-family: sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
       display: flex;
       flex-direction: column;
       align-items: center;
       min-height: 100vh;
       padding: 20px 0;
-      box-sizing: border-box;
     }
+    .wrap { width: 90%; max-width: 1280px; }
 
-    .warning-box {
-      width: 90%;
-      max-width: 1280px;
-      /* 警告ボックスの背景も黒に */
-      background: #000;
-      border: 2px solid #ff0000;
-      border-radius: 8px;
-      padding: 16px 20px;
-      margin-bottom: 16px;
-      box-sizing: border-box;
-    }
-
-    .warning-box h2 {
-      margin: 0 0 8px;
-      font-size: 18px;
-      /* タイトルを赤文字に */
-      color: #ff0000;
-    }
-
-    .warning-box p {
-      margin: 0;
-      font-size: 14px;
-      line-height: 1.7;
-      color: #e0e0e0;
-    }
-
+    /* プレイヤー（最上部） */
     .player-container {
-      width: 90%;
-      max-width: 1280px;
+      width: 100%;
       aspect-ratio: 16 / 9;
       background: #000;
       border-radius: 8px;
       overflow: hidden;
       box-shadow: 0 4px 20px rgba(0,0,0,0.8);
+      margin-bottom: 16px;
+      position: relative;
+    }
+    .player-container iframe { width: 100%; height: 100%; border: none; }
+
+    /* 警告ボックス */
+    .warning-box {
+      background: #000;
+      border: 2px solid var(--red);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin-bottom: 16px;
+    }
+    .warning-box h2 {
+      margin: 0 0 8px;
+      font-size: 18px;
+      color: var(--red);
+    }
+    .warning-box p { margin: 0; font-size: 14px; line-height: 1.7; color: var(--text); }
+
+    /* 証拠ツール */
+    .evidence-tools {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .evidence-tools h3 { margin: 0 0 12px; font-size: 16px; color: var(--red); }
+    .btn-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+    .btn {
+      border: none; border-radius: 6px; padding: 10px 16px;
+      font-size: 14px; font-weight: 600; cursor: pointer;
+    }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-rec { background: var(--red); color: #fff; }
+    .btn-stop { background: #444; color: #fff; }
+    .btn-snap { background: var(--green); color: #000; }
+    .btn-memo { background: var(--yellow); color: #000; }
+    .btn-zip { background: #1e88e5; color: #fff; }
+    .btn-copy { background: #555; color: #fff; }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 8px;
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+    .info-grid span { color: var(--muted); }
+    .info-grid strong { color: var(--text); font-variant-numeric: tabular-nums; }
+
+    .memo-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 12px; }
+    .memo-row label { font-size: 13px; color: var(--muted); }
+    .memo-row input[type="text"] {
+      background: #000; color: var(--text); border: 1px solid var(--border);
+      border-radius: 4px; padding: 8px 10px; font-size: 13px; flex: 1; min-width: 180px;
     }
 
-    iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
+    /* クイックメモ */
+    .quick-memos { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .quick-memos .btn-memo { padding: 6px 10px; font-size: 12px; }
+
+    /* メモ履歴 */
+    .memo-log {
+      max-height: 160px; overflow-y: auto;
+      background: #000; border: 1px solid var(--border); border-radius: 6px;
+      padding: 8px 12px; font-size: 12px; font-family: monospace;
+      margin-bottom: 12px;
+    }
+    .memo-log p { margin: 2px 0; color: var(--muted); }
+    .memo-log p strong { color: var(--green); }
+
+    /* 通報チェックリスト */
+    .checklist { margin-bottom: 16px; }
+    .checklist h3 { margin: 0 0 10px; font-size: 16px; color: var(--red); }
+    .checklist label {
+      display: flex; align-items: flex-start; gap: 8px;
+      font-size: 13px; margin-bottom: 6px; cursor: pointer; color: var(--text);
+    }
+    .checklist input { margin-top: 2px; }
+
+    /* VOD欄 */
+    .vod-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+    .vod-row input {
+      flex: 1; min-width: 200px;
+      background: #000; color: var(--text); border: 1px solid var(--border);
+      border-radius: 4px; padding: 8px 10px; font-size: 13px;
     }
 
-    .notice {
-      width: 90%;
-      max-width: 1280px;
-      margin-top: 16px;
-      font-size: 14px;
-      color: #aaa;
-      line-height: 1.7;
-      box-sizing: border-box;
+    /* フッター注記 */
+    .footer-notes {
+      font-size: 12px; color: var(--muted); line-height: 1.7;
+      border-top: 1px solid var(--border); padding-top: 16px; margin-bottom: 24px;
     }
+    .footer-notes h3 { color: var(--red); font-size: 14px; margin: 16px 0 6px; }
+    .footer-notes ul { margin: 4px 0; padding-left: 20px; }
+    .footer-notes a { color: var(--green); }
 
-    .notice ul {
-      margin: 8px 0 0;
-      padding-left: 20px;
+    .toast {
+      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+      background: #222; color: #fff; border: 1px solid var(--border);
+      padding: 10px 18px; border-radius: 8px; font-size: 13px;
+      opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 999;
     }
-
-    .notice li {
-      margin-bottom: 6px;
-    }
-
-    .notice strong {
-      color: #fff;
-    }
-
-    /* 「監視時の注意事項」タイトルも赤文字に */
-    .notice > p > strong {
-      color: #ff0000;
-      font-size: 16px;
-    }
-
-    .notice a {
-      color: #53fc18;
-    }
+    .toast.show { opacity: 1; }
   </style>
 </head>
 <body>
-  <!-- アクティブ判定に関する注意 -->
-  <div class="warning-box">
-    <h2>⚠️ アクティブ（活動中）判定についての注意</h2>
-    <p>
-      不正な時間稼ぎや放置を防ぐために厳格な「アクティブ（活動中）判定」が導入されており、
-      無言や放置が続くとシステムに「配信していない（放置）」とみなされ、
-      その時間の報酬カウントから除外される。
-    </p>
-    <p style="margin-top: 8px;">
-      監視・記録を行う際は、無言・放置時間が報酬対象外になる場合がある点を考慮してください。
-    </p>
-  </div>
+<div class="wrap">
 
+  <!-- ① プレイヤー（最上部） -->
   <div class="player-container">
-    <!--
-      公式プレイヤーURLを使用し、チャット欄を表示させない。
-      sandbox属性で親サイトのCookie等へのアクセスを制限。
-    -->
     <iframe
       src="https://player.kick.com/tsubanyan?autoplay=true&muted=true"
       allowfullscreen="true"
@@ -121,26 +158,421 @@
     </iframe>
   </div>
 
-  <div class="notice">
-    <p><strong>監視時の注意事項</strong></p>
-    <ul>
-      <li>
-        <strong>Kickアカウントにはログインしない</strong><br>
-        ログインした状態で直接配信ページを開くと「アクティブな視聴者（ログインユーザー）」として
-        相手の配信実績にカウントされる可能性があります。シークレットモードまたは
-        ログインしていない別ブラウザを使用してください。
-      </li>
-      <li>
-        <strong>埋め込みプレイヤーのチャット欄は開かない</strong><br>
-        チャットの接続・閲覧・書き込みは相手の「エンゲージメント」を上げてしまうため、
-        動画プレイヤー部分（映像と音声）のみを確認してください。
-      </li>
-      <li>
-        <strong>通報はログインした別ブラウザ、または専用フォームから行う</strong><br>
-        迷惑行為を確認し、証拠（スクリーンショットや問題発言のタイムスタンプなど）を
-        確保したら、ご自身のKickアカウントまたはKickのサポート窓口を通じて通報してください。
-      </li>
-    </ul>
+  <!--
+    ▼ 配信状態（LIVE/OFFLINE）表示・非公式API連携は対応策検討後にここへ追加予定
+  -->
+
+  <!-- ② 証拠記録ツール -->
+  <div class="evidence-tools">
+    <h3>📋 証拠記録ツール</h3>
+
+    <div class="btn-row">
+      <button id="startRec" class="btn btn-rec">🔴 証拠録画を開始</button>
+      <button id="stopRec" class="btn btn-stop" disabled>⏹ 録画を停止・保存</button>
+      <button id="snap" class="btn btn-snap">📸 スクリーンショット</button>
+      <button id="downloadZip" class="btn btn-zip" disabled>📦 証拠ZIPを生成</button>
+      <button id="copyReport" class="btn btn-copy">📋 通報情報をコピー</button>
+    </div>
+
+    <div class="info-grid">
+      <div><span>録画状態:</span> <strong id="recStatus">待機中</strong></div>
+      <div><span>録画開始:</span> <strong id="recStartLabel">—</strong></div>
+      <div><span>録画経過:</span> <strong id="recElapsed">00:00:00</strong></div>
+      <div><span>監視開始からの経過:</span> <strong id="monitorElapsed">00:00:00</strong></div>
+      <div><span>ページ読み込み:</span> <strong id="pageLoadedLabel">—</strong></div>
+    </div>
+
+    <div class="memo-row">
+      <label for="streamTime">配信タイムスタンプ（任意・手動メモ）:</label>
+      <input type="text" id="streamTime" placeholder="例: 01:23:45 付近">
+    </div>
+
+    <div class="quick-memos">
+      <button class="btn btn-memo quick" data-memo="暴言">暴言</button>
+      <button class="btn btn-memo quick" data-memo="迷惑行為">迷惑行為</button>
+      <button class="btn btn-memo quick" data-memo="規約違反の疑い">規約違反の疑い</button>
+      <button class="btn btn-memo quick" data-memo="脅迫・威嚇">脅迫・威嚇</button>
+      <button class="btn btn-memo quick" data-memo="差別的発言">差別的発言</button>
+      <button class="btn btn-memo quick" data-memo="その他">その他</button>
+    </div>
+
+    <div class="memo-log" id="memoLog">
+      <p style="color:var(--muted);">クイックメモを押すと、ここに自動タイムスタンプ付きで記録されます。</p>
+    </div>
   </div>
+
+  <!-- ③ 注意事項：アクティブ判定 -->
+  <div class="warning-box">
+    <h2>⚠️ アクティブ（活動中）判定についての注意</h2>
+    <p>
+      不正な時間稼ぎや放置を防ぐために厳格な「アクティブ（活動中）判定」が導入されており、
+      無言や放置が続くとシステムに「配信していない（放置）」とみなされ、
+      その時間の報酬カウントから除外される。
+    </p>
+    <p style="margin-top:8px;">
+      監視・記録を行う際は、無言・放置時間が報酬対象外になる場合がある点を考慮してください。
+    </p>
+  </div>
+
+  <!-- ④ 通報チェックリスト -->
+  <div class="checklist">
+    <h3>✅ 通報前チェックリスト</h3>
+    <label><input type="checkbox" id="chk1"> スクリーンショットまたは録画を保存した</label>
+    <label><input type="checkbox" id="chk2"> 問題発言のタイムスタンプを記録した</label>
+    <label><input type="checkbox" id="chk3"> VODまたはクリップのURLを控えた</label>
+    <label><input type="checkbox" id="chk4"> チャンネル名・配信URLを確認した</label>
+    <label><input type="checkbox" id="chk5"> 証拠は通報目的の私的利用に限定することを理解した</label>
+  </div>
+
+  <!-- ⑤ VOD・クリップURL -->
+  <div class="vod-row">
+    <input type="url" id="vodUrl" placeholder="VOD URL（例: https://kick.com/tsubanyan/videos/...）">
+    <input type="url" id="clipUrl" placeholder="クリップURL（任意）">
+  </div>
+
+  <!-- ⑥ フッター注記（免責・利用範囲・通報手順など） -->
+  <div class="footer-notes">
+    <h3>免責事項</h3>
+    <p>
+      本サイトは非公式の監視ツールであり、Kickおよび配信者とは一切関係ありません。
+      非公式APIの仕様変更・停止、ブラウザの制限等により機能が利用できなくなる場合がありますが、
+      当方は一切の責任を負いません。
+    </p>
+
+    <h3>録画・スクリーンショットの利用範囲</h3>
+    <p>
+      録画・スクリーンショットは<strong>通報目的の私的利用に限定</strong>してください。
+      KickのVODは配信者に帰属し、無断でのダウンロード・再配布はKickの利用規約違反や
+      著作権侵害に該当する可能性があります。SNS等への公開は行わないでください。
+    </p>
+
+    <h3>通報手順の要約</h3>
+    <p>
+      Kickの通報では「スクリーンショット・タイムスタンプ・VODリンク・クリップ」が推奨されています。
+      証拠を確保したうえで、Kickのサポート窓口（<a href="mailto:support@kick.com">support@kick.com</a>）または
+      公式の通報フォームから報告してください。
+    </p>
+
+    <h3>プライバシー・ローカル保存について</h3>
+    <p>
+      本ツールは設定やメモ履歴をブラウザの<strong>ローカルストレージ</strong>に保存します。
+      外部サーバーへの送信は行いません。不要になった場合はブラウザの設定から削除してください。
+    </p>
+
+    <h3>アクティブ判定に関する再掲</h3>
+    <p>
+      無言・放置が続くと「配信していない（放置）」とみなされ、報酬カウントから除外されます。
+      監視・記録時はこの点を考慮してください。
+    </p>
+
+    <p style="margin-top:16px;">
+      最終更新: 2026年10月22日 ／
+      <a href="https://github.com/あなたのユーザー名/リポジトリ名/issues" target="_blank" rel="noopener">フィードバック（GitHub Issues）</a>
+    </p>
+  </div>
+
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+/* ============================================================
+   共通ユーティリティ
+============================================================ */
+const $ = id => document.getElementById(id);
+const pageLoadedAt = new Date();
+let recordingStartTime = null;
+let recordingStopTime = null;
+let elapsedTimer = null;
+let mediaRecorder = null;
+let recordedChunks = [];
+let displayStream = null;
+let videoTrack = null;
+let lastRecordingBlob = null;
+let lastRecordingName = '';
+let quickMemoEntries = [];
+
+// ローカルストレージからメモ履歴を復元
+try {
+  const saved = localStorage.getItem('kickMonitorMemos');
+  if (saved) {
+    quickMemoEntries = JSON.parse(saved);
+    renderMemoLog();
+  }
+} catch (e) { /* 無視 */ }
+
+function formatDuration(ms) {
+  const total = Math.floor(ms / 1000);
+  const h = String(Math.floor(total / 3600)).padStart(2, '0');
+  const m = String(Math.floor((total % 3600) / 60)).padStart(2, '0');
+  const s = String(total % 60).padStart(2, '0');
+  return `${h}:${m}:${s}`;
+}
+
+function timestampForFile(date = new Date()) {
+  const p = n => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())}_`
+       + `${p(date.getHours())}-${p(date.getMinutes())}-${p(date.getSeconds())}`;
+}
+
+function isoLocal(date) {
+  const p = n => String(n).padStart(2, '0');
+  const tz = -date.getTimezoneOffset();
+  const sign = tz >= 0 ? '+' : '-';
+  const tzH = p(Math.floor(Math.abs(tz) / 60));
+  const tzM = p(Math.abs(tz) % 60);
+  return `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())}T`
+       + `${p(date.getHours())}:${p(date.getMinutes())}:${p(date.getSeconds())}`
+       + `${sign}${tzH}:${tzM}`;
+}
+
+function showToast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+async function sha256Hex(arrayBuffer) {
+  const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+  return [...new Uint8Array(hashBuffer)]
+    .map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/* ============================================================
+   監視開始からの経過・ページ読み込み表示
+============================================================ */
+$('pageLoadedLabel').textContent = isoLocal(pageLoadedAt);
+setInterval(() => {
+  $('monitorElapsed').textContent = formatDuration(Date.now() - pageLoadedAt.getTime());
+}, 1000);
+
+/* ============================================================
+   録画（getDisplayMedia + MediaRecorder）
+============================================================ */
+$('startRec').addEventListener('click', async () => {
+  try {
+    displayStream = await navigator.mediaDevices.getDisplayMedia({
+      video: { frameRate: 30 },
+      audio: true
+    });
+    videoTrack = displayStream.getVideoTracks()[0];
+
+    const tracks = [...displayStream.getVideoTracks()];
+    if (displayStream.getAudioTracks().length > 0) {
+      tracks.push(...displayStream.getAudioTracks());
+    }
+    const stream = new MediaStream(tracks);
+
+    mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9,opus' });
+    recordedChunks = [];
+
+    mediaRecorder.ondataavailable = e => {
+      if (e.data.size > 0) recordedChunks.push(e.data);
+    };
+
+    mediaRecorder.onstop = async () => {
+      recordingStopTime = new Date();
+
+      const blob = new Blob(recordedChunks, { type: 'video/webm' });
+      lastRecordingBlob = blob;
+      lastRecordingName = `evidence_${timestampForFile(recordingStartTime)}.webm`;
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = lastRecordingName;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      // メタデータ生成
+      const memo = $('streamTime').value.trim() || '(未入力)';
+      const arrayBuffer = await blob.arrayBuffer();
+      const hash = await sha256Hex(arrayBuffer);
+      const meta = [
+        '=== 証拠記録メタデータ ===',
+        `ページ読み込み: ${isoLocal(pageLoadedAt)}`,
+        `録画開始: ${isoLocal(recordingStartTime)}`,
+        `録画停止: ${isoLocal(recordingStopTime)}`,
+        `録画長: ${formatDuration(recordingStopTime - recordingStartTime)}`,
+        `監視開始からの経過: ${formatDuration(recordingStartTime - pageLoadedAt)}`,
+        `配信タイムスタンプ(手動メモ): ${memo}`,
+        `対象URL: https://player.kick.com/tsubanyan`,
+        `ファイル名: ${lastRecordingName}`,
+        `SHA-256: ${hash}`,
+        '',
+        '--- クイックメモ履歴 ---',
+        ...quickMemoEntries.map(m => `[${m.time}] ${m.label}`)
+      ].join('\n');
+
+      const metaBlob = new Blob([meta], { type: 'text/plain;charset=utf-8' });
+      const metaUrl = URL.createObjectURL(metaBlob);
+      const metaA = document.createElement('a');
+      metaA.href = metaUrl;
+      metaA.download = `evidence_${timestampForFile(recordingStartTime)}_meta.txt`;
+      metaA.click();
+      URL.revokeObjectURL(metaUrl);
+
+      // 表示リセット
+      clearInterval(elapsedTimer);
+      $('recStatus').textContent = '保存完了';
+      $('recElapsed').textContent = '00:00:00';
+      $('startRec').disabled = false;
+      $('stopRec').disabled = true;
+      $('downloadZip').disabled = false;
+      showToast('録画とメタデータを保存しました');
+    };
+
+    recordingStartTime = new Date();
+    recordingStopTime = null;
+    $('recStartLabel').textContent = isoLocal(recordingStartTime);
+    $('recStatus').textContent = '録画中...（問題箇所だけ録画してください）';
+    $('recElapsed').textContent = '00:00:00';
+    $('downloadZip').disabled = true;
+
+    clearInterval(elapsedTimer);
+    elapsedTimer = setInterval(() => {
+      $('recElapsed').textContent =
+        formatDuration(Date.now() - recordingStartTime.getTime());
+    }, 1000);
+
+    mediaRecorder.start();
+    $('startRec').disabled = true;
+    $('stopRec').disabled = false;
+  } catch (err) {
+    alert('画面共有がキャンセルされたか、権限がありません: ' + err.message);
+  }
+});
+
+$('stopRec').addEventListener('click', () => {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+    displayStream.getTracks().forEach(t => t.stop());
+  }
+});
+
+/* ============================================================
+   スクリーンショット（ImageCapture）
+============================================================ */
+$('snap').addEventListener('click', async () => {
+  if (!videoTrack) {
+    alert('先に「証拠録画を開始」で画面を共有してください。');
+    return;
+  }
+  try {
+    const now = new Date();
+    const imageCapture = new ImageCapture(videoTrack);
+    const bitmap = await imageCapture.grabFrame();
+    const canvas = document.createElement('canvas');
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    canvas.getContext('2d').drawImage(bitmap, 0, 0);
+
+    const a = document.createElement('a');
+    a.href = canvas.toDataURL('image/png');
+    a.download = `evidence_${timestampForFile(now)}.png`;
+    a.click();
+    showToast('スクリーンショットを保存しました');
+  } catch (err) {
+    alert('スクリーンショットに失敗しました: ' + err.message);
+  }
+});
+
+/* ============================================================
+   クイックメモ
+============================================================ */
+document.querySelectorAll('.quick').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const label = btn.dataset.memo;
+    const now = new Date();
+    const entry = {
+      time: isoLocal(now),
+      label: label,
+      streamTime: $('streamTime').value.trim() || ''
+    };
+    quickMemoEntries.push(entry);
+    localStorage.setItem('kickMonitorMemos', JSON.stringify(quickMemoEntries));
+    renderMemoLog();
+    showToast(`「${label}」を記録しました`);
+  });
+});
+
+function renderMemoLog() {
+  const log = $('memoLog');
+  if (quickMemoEntries.length === 0) {
+    log.innerHTML = '<p style="color:var(--muted);">クイックメモを押すと、ここに自動タイムスタンプ付きで記録されます。</p>';
+    return;
+  }
+  log.innerHTML = quickMemoEntries.map(m =>
+    `<p><strong>[${m.time}]</strong> ${m.label}` +
+    (m.streamTime ? ` <span style="color:var(--yellow);">（配信内: ${m.streamTime}）</span>` : '') +
+    `</p>`
+  ).join('');
+}
+
+/* ============================================================
+   証拠ZIP生成（JSZip）
+============================================================ */
+$('downloadZip').addEventListener('click', async () => {
+  if (!lastRecordingBlob) {
+    alert('録画ファイルがありません。先に録画を完了してください。');
+    return;
+  }
+  try {
+    const zip = new JSZip();
+
+    // 録画ファイル
+    zip.file(lastRecordingName, lastRecordingBlob);
+
+    // メタデータ
+    const meta = [
+      '=== 証拠パッケージ ===',
+      `ページ読み込み: ${isoLocal(pageLoadedAt)}`,
+      `録画ファイル: ${lastRecordingName}`,
+      `VOD URL: ${$('vodUrl').value.trim() || '(未入力)'}`,
+      `クリップURL: ${$('clipUrl').value.trim() || '(未入力)'}`,
+      '',
+      '--- クイックメモ履歴 ---',
+      ...quickMemoEntries.map(m => `[${m.time}] ${m.label}${m.streamTime ? ' (配信内: ' + m.streamTime + ')' : ''}`)
+    ].join('\n');
+    zip.file(`evidence_${timestampForFile()}_meta.txt`, meta);
+
+    const content = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(content);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `evidence_package_${timestampForFile()}.zip`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('証拠ZIPを生成しました');
+  } catch (err) {
+    alert('ZIP生成に失敗しました: ' + err.message);
+  }
+});
+
+/* ============================================================
+   通報情報をクリップボードにコピー
+============================================================ */
+$('copyReport').addEventListener('click', async () => {
+  const lines = [
+    '=== Kick 通報情報 ===',
+    `チャンネル: tsubanyan`,
+    `配信URL: https://kick.com/tsubanyan`,
+    `録画開始: ${recordingStartTime ? isoLocal(recordingStartTime) : '(未録画)'}`,
+    `配信タイムスタンプ: ${$('streamTime').value.trim() || '(未入力)'}`,
+    `VOD URL: ${$('vodUrl').value.trim() || '(未入力)'}`,
+    `クリップURL: ${$('clipUrl').value.trim() || '(未入力)'}`,
+    '',
+    '--- クイックメモ ---',
+    ...quickMemoEntries.map(m => `[${m.time}] ${m.label}`)
+  ];
+  try {
+    await navigator.clipboard.writeText(lines.join('\n'));
+    showToast('通報情報をコピーしました');
+  } catch (err) {
+    alert('クリップボードへのコピーに失敗しました: ' + err.message);
+  }
+});
+</script>
 </body>
 </html>
