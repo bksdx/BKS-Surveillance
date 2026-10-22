@@ -54,6 +54,10 @@
       background: var(--yellow);
       color: #000;
     }
+    .player-controls .btn-audio.audio-on {
+      background: var(--green);
+      color: #000;
+    }
     .player-controls .note {
       font-size: 12px;
       color: var(--muted);
@@ -265,12 +269,12 @@
     </iframe>
   </div>
 
-  <!-- プレイヤー操作（音声有効化） -->
+  <!-- プレイヤー操作（音声トグルスイッチ） -->
   <div class="player-controls">
     <button id="enableAudio" class="btn btn-audio">音声を有効にする</button>
     <span class="note">
       ブラウザの自動再生ポリシーにより、初期状態はミュートで自動再生されます。
-      「音声を有効にする」を押すと音声付きで再読み込みします。
+      ボタンを押すと音声の有効／無効を切り替えられます。
       プレイヤー内のスピーカーアイコンでも解除できます。
     </span>
   </div>
@@ -612,12 +616,26 @@ async function sha256Hex(arrayBuffer) {
 }
 
 /* ============================================================
-   音声の有効化（ユーザー操作をトリガーに再読み込み）
+   音声トグルスイッチ（ユーザー操作をトリガーに再読み込み）
 ============================================================ */
+let audioEnabled = false;
+
 $('enableAudio').addEventListener('click', () => {
+  audioEnabled = !audioEnabled;
   const iframe = $('kickPlayer');
-  iframe.src = 'https://player.kick.com/tsubanyan?autoplay=true&muted=false';
-  showToast('音声付きで再読み込みしました');
+  const btn = $('enableAudio');
+
+  iframe.src = `https://player.kick.com/tsubanyan?autoplay=true&muted=${!audioEnabled}`;
+
+  if (audioEnabled) {
+    btn.textContent = '音声を無効にする';
+    btn.classList.add('audio-on');
+    showToast('音声を有効にしました');
+  } else {
+    btn.textContent = '音声を有効にする';
+    btn.classList.remove('audio-on');
+    showToast('音声を無効にしました');
+  }
 });
 
 /* ============================================================
