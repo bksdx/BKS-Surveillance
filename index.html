@@ -891,13 +891,13 @@ $('downloadZip').addEventListener('click', async () => {
 });
 
 /* ============================================================
-   通報情報コピー
+   通報情報コピー（Kick送信用：監視対象はTsubanyan表記）
 ============================================================ */
 $('copyReport').addEventListener('click', async () => {
   const clip = $('clipUrl').value.trim() || '(未入力)';
   const lines = [
     '=== Kick 通報情報 ===',
-    `監視対象: バクソ`,
+    `監視対象: Tsubanyan`,
     `チャンネルURL: https://kick.com/tsubanyan`,
     `録画開始: ${recordingStartTime ? isoLocal(recordingStartTime) : '(未録画)'}`,
     `配信タイムスタンプ: ${$('streamTime').value.trim() || '(未入力)'}`,
@@ -907,7 +907,7 @@ $('copyReport').addEventListener('click', async () => {
     '--- クイックメモ ---',
     ...quickMemoEntries.map(m => `[${m.time}] ${m.label}`),
     '',
-    '--- 補足 ---',
+    '--- 補足 (送信前に削除してください)---',
     '上記クリップURLはKick上で手動生成したクリップです。',
     'スクリーンショット・録画ファイルは別途添付してください。'
   ];
