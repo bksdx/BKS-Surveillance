@@ -32,7 +32,6 @@
     }
     .wrap { width: 90%; max-width: 1280px; }
 
-    /* プレイヤー */
     .player-container {
       width: 100%;
       aspect-ratio: 16 / 9;
@@ -44,7 +43,6 @@
     }
     .player-container iframe { width: 100%; height: 100%; border: none; display: block; }
 
-    /* 注意事項ボックス */
     .notice-box {
       background: #000;
       border: 2px solid var(--red);
@@ -58,7 +56,6 @@
     .notice-box ol li strong { color: #fff; }
     .notice-box ol li:last-child { margin-bottom: 0; }
 
-    /* 証拠ツール */
     .evidence-tools {
       background: var(--panel);
       border: 1px solid var(--border);
@@ -68,7 +65,6 @@
     }
     .evidence-tools h3 { margin: 0 0 12px; font-size: 16px; color: var(--red); }
 
-    /* モバイル案内バナー */
     .mobile-notice {
       display: none;
       background: #2a1a00;
@@ -97,6 +93,7 @@
     .btn-zip { background: #1e88e5; color: #fff; }
     .btn-copy { background: #555; color: #fff; }
     .btn-guide { background: #6a1b9a; color: #fff; }
+    .btn-clear { background: #555; color: #fff; }
 
     .info-grid {
       display: grid;
@@ -116,7 +113,6 @@
       min-height: 44px;
     }
 
-    /* クイックメモ見出し */
     .memo-heading {
       margin: 0 0 8px;
       font-size: 14px;
@@ -124,27 +120,48 @@
       color: var(--text);
     }
 
-    /* クイックメモ（グリッドでスマホでも確実に表示） */
+    /* クイックメモ：カテゴリ別グループ */
+    .quick-memo-group {
+      margin-bottom: 12px;
+    }
+    .quick-memo-group-title {
+      font-size: 12px;
+      color: var(--muted);
+      margin: 0 0 6px;
+      font-weight: 600;
+    }
     .quick-memos {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
       gap: 8px;
-      margin-bottom: 12px;
+      margin-bottom: 4px;
     }
     .quick-memos .btn-memo {
       padding: 10px 8px;
       font-size: 13px;
       min-height: 44px;
     }
+    /* ゼロトレランス項目を強調 */
+    .quick-memos .btn-memo.zero-tolerance {
+      border: 1px solid var(--red);
+      background: #3a0000;
+      color: #ffb3b3;
+    }
 
     .memo-log {
       max-height: 160px; overflow-y: auto;
       background: #000; border: 1px solid var(--border); border-radius: 6px;
       padding: 8px 12px; font-size: 12px; font-family: monospace;
-      margin-bottom: 12px;
+      margin-bottom: 8px;
     }
     .memo-log p { margin: 2px 0; color: var(--muted); }
     .memo-log p strong { color: var(--green); }
+
+    .memo-actions {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
 
     .checklist { margin-bottom: 16px; }
     .checklist h3 { margin: 0 0 10px; font-size: 16px; color: var(--red); }
@@ -180,7 +197,6 @@
     }
     .toast.show { opacity: 1; }
 
-    /* クリップ案内モーダル */
     .modal-backdrop {
       position: fixed; inset: 0; background: rgba(0,0,0,0.8);
       display: none; align-items: center; justify-content: center;
@@ -223,6 +239,7 @@
       .notice-box ol { font-size: 13px; }
       .footer-notes { font-size: 13px; }
       .vod-row .btn-guide { flex: 1 1 100%; }
+      .quick-memos { grid-template-columns: repeat(2, 1fr); }
     }
   </style>
 </head>
@@ -271,22 +288,97 @@
       <input type="text" id="streamTime" placeholder="例: 01:23:45 付近" inputmode="text">
     </div>
 
-    <p class="memo-heading">クイックメモ（問題種別をワンタップで記録）</p>
-    <div class="quick-memos">
-      <button class="btn btn-memo quick" data-memo="暴言">暴言</button>
-      <button class="btn btn-memo quick" data-memo="迷惑行為">迷惑行為</button>
-      <button class="btn btn-memo quick" data-memo="規約違反の疑い">規約違反の疑い</button>
-      <button class="btn btn-memo quick" data-memo="脅迫・威嚇">脅迫・威嚇</button>
-      <button class="btn btn-memo quick" data-memo="差別的発言">差別的発言</button>
-      <button class="btn btn-memo quick" data-memo="その他">その他</button>
+    <p class="memo-heading">クイックメモ（Kick規約違反の種別をワンタップ記録）</p>
+
+    <!-- ゼロトレランス -->
+    <div class="quick-memo-group">
+      <p class="quick-memo-group-title">ゼロトレランス（即時永久停止対象）</p>
+      <div class="quick-memos">
+        <button class="btn btn-memo quick zero-tolerance" data-memo="未成年者の性的搾取（CSAM）">未成年者的性的搾取（CSAM）</button>
+        <button class="btn btn-memo quick zero-tolerance" data-memo="グルーミング・未成年への不当行為">グルーミング・未成年への不当行為</button>
+        <button class="btn btn-memo quick zero-tolerance" data-memo="保護者監督なしの未成年出演">保護者監督なしの未成年出演</button>
+        <button class="btn btn-memo quick zero-tolerance" data-memo="テロリズム・過激主義の扇動">テロリズム・過激主義の扇動</button>
+      </div>
+    </div>
+
+    <!-- 性的コンテンツ -->
+    <div class="quick-memo-group">
+      <p class="quick-memo-group-title">性的コンテンツ</p>
+      <div class="quick-memos">
+        <button class="btn btn-memo quick" data-memo="ポルノ・裸体">ポルノ・裸体</button>
+        <button class="btn btn-memo quick" data-memo="過度な性的描写">過度な性的描写</button>
+        <button class="btn btn-memo quick" data-memo="性的脅迫">性的脅迫</button>
+        <button class="btn btn-memo quick" data-memo="非合意の性的画像（ディープフェイク含む）">非合意の性的画像</button>
+      </div>
+    </div>
+
+    <!-- 暴力・安全 -->
+    <div class="quick-memo-group">
+      <p class="quick-memo-group-title">暴力・公共安全</p>
+      <div class="quick-memos">
+        <button class="btn btn-memo quick" data-memo="極度の暴力・グロ">極度の暴力・グロ</button>
+        <button class="btn btn-memo quick" data-memo="動物虐待">動物虐待</button>
+        <button class="btn btn-memo quick" data-memo="スワッティング・虚偽通報">スワッティング・虚偽通報</button>
+        <button class="btn btn-memo quick" data-memo="危険な運転・危険行為">危険な運転・危険行為</button>
+        <button class="btn btn-memo quick" data-memo="公共での嫌がらせ">公共での嫌がらせ</button>
+      </div>
+    </div>
+
+    <!-- ヘイト・ハラスメント -->
+    <div class="quick-memo-group">
+      <p class="quick-memo-group-title">ヘイト・ハラスメント</p>
+      <div class="quick-memos">
+        <button class="btn btn-memo quick" data-memo="ヘイトスピーチ">ヘイトスピーチ</button>
+        <button class="btn btn-memo quick" data-memo="組織的嫌がらせ">組織的嫌がらせ</button>
+        <button class="btn btn-memo quick" data-memo="ドキシング（晒し）">ドキシング（晒し）</button>
+        <button class="btn btn-memo quick" data-memo="なりすまし">なりすまし</button>
+      </div>
+    </div>
+
+    <!-- 自傷・薬物 -->
+    <div class="quick-memo-group">
+      <p class="quick-memo-group-title">自傷・薬物</p>
+      <div class="quick-memos">
+        <button class="btn btn-memo quick" data-memo="自傷・自殺教唆">自傷・自殺教唆</button>
+        <button class="btn btn-memo quick" data-memo="薬物乱用">薬物乱用</button>
+        <button class="btn btn-memo quick" data-memo="摂食障害の助長">摂食障害の助長</button>
+      </div>
+    </div>
+
+    <!-- 詐欺・真正性 -->
+    <div class="quick-memo-group">
+      <p class="quick-memo-group-title">詐欺・真正性</p>
+      <div class="quick-memos">
+        <button class="btn btn-memo quick" data-memo="詐欺・不正">詐欺・不正</button>
+        <button class="btn btn-memo quick" data-memo="ボット・エンゲージメント操作">ボット・エンゲージメント操作</button>
+        <button class="btn btn-memo quick" data-memo="誤情報">誤情報</button>
+        <button class="btn btn-memo quick" data-memo="未開示のAI生成コンテンツ">未開示のAI生成コンテンツ</button>
+      </div>
+    </div>
+
+    <!-- その他 -->
+    <div class="quick-memo-group">
+      <p class="quick-memo-group-title">その他</p>
+      <div class="quick-memos">
+        <button class="btn btn-memo quick" data-memo="著作権侵害">著作権侵害</button>
+        <button class="btn btn-memo quick" data-memo="違法ギャンブル">違法ギャンブル</button>
+        <button class="btn btn-memo quick" data-memo="視聴者資金によるギャンブル">視聴者資金によるギャンブル</button>
+        <button class="btn btn-memo quick" data-memo="BAN回避">BAN回避</button>
+        <button class="btn btn-memo quick" data-memo="ゲームチート">ゲームチート</button>
+        <button class="btn btn-memo quick" data-memo="その他">その他</button>
+      </div>
     </div>
 
     <div class="memo-log" id="memoLog">
       <p style="color:var(--muted);">クイックメモを押すと、ここに自動タイムスタンプ付きで記録されます。</p>
     </div>
+
+    <div class="memo-actions">
+      <button id="clearMemos" class="btn btn-clear" type="button">メモ履歴をクリア</button>
+    </div>
   </div>
 
-  <!-- 3. 注意事項（初期の3つを復活） -->
+  <!-- 3. 注意事項 -->
   <div class="notice-box">
     <h2>注意事項</h2>
     <ol>
@@ -345,7 +437,7 @@
     <p>
       録画・スクリーンショット・クリップは<strong>通報目的の私的利用に限定</strong>してください。
       KickのVODやクリップは配信者に帰属し、無断でのダウンロード・再配布はKickの利用規約違反や
-      著作権侵害に該当する可能性があります。
+      著作権侵害に該当する可能性があります。SNS等への公開は行わないでください。
     </p>
 
     <h3>クリップの作成について</h3>
@@ -373,7 +465,8 @@
     <h3>プライバシー・ローカル保存について</h3>
     <p>
       本ツールは設定やメモ履歴をブラウザの<strong>ローカルストレージ</strong>に保存します。
-      外部サーバーへの送信は行いません。不要になった場合はブラウザの設定から削除してください。
+      外部サーバーへの送信は行いません。不要になった場合はブラウザの設定から削除するか、
+      「メモ履歴をクリア」ボタンで削除してください。
     </p>
 
     <p style="margin-top:16px;">
@@ -429,18 +522,15 @@ let lastRecordingBlob = null;
 let lastRecordingName = '';
 let quickMemoEntries = [];
 
-/* モバイル判定 */
 const isMobile =
   /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
   (navigator.maxTouchPoints > 1 && window.innerWidth < 1024);
 
-/* キャプチャAPIの利用可否 */
 const canCapture =
   !!navigator.mediaDevices &&
   typeof navigator.mediaDevices.getDisplayMedia === 'function' &&
   typeof window.ImageCapture === 'function';
 
-/* モバイル／非対応環境の案内 */
 if (isMobile || !canCapture) {
   $('mobileNotice').classList.add('show');
   ['startRec', 'snap', 'stopShare'].forEach(id => { $(id).disabled = true; });
@@ -738,6 +828,21 @@ document.querySelectorAll('.quick').forEach(btn => {
   });
 });
 
+/* メモ履歴クリア */
+$('clearMemos').addEventListener('click', () => {
+  if (quickMemoEntries.length === 0) {
+    showToast('クリアするメモがありません');
+    return;
+  }
+  if (!confirm('クイックメモの履歴をすべて削除しますか？\n（この操作は取り消せません）')) {
+    return;
+  }
+  quickMemoEntries = [];
+  try { localStorage.removeItem('kickMonitorMemos'); } catch (e) {}
+  renderMemoLog();
+  showToast('メモ履歴をクリアしました');
+});
+
 function renderMemoLog() {
   const log = $('memoLog');
   if (quickMemoEntries.length === 0) {
@@ -789,7 +894,7 @@ $('downloadZip').addEventListener('click', async () => {
 });
 
 /* ============================================================
-   通報情報コピー（クリップURL含む／iOSフォールバック付き）
+   通報情報コピー
 ============================================================ */
 $('copyReport').addEventListener('click', async () => {
   const clip = $('clipUrl').value.trim() || '(未入力)';
