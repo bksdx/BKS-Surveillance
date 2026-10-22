@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>バクソ 配信監視</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <style>
@@ -16,7 +16,7 @@
       --green: #53fc18;
       --yellow: #ffb74d;
     }
-    * { box-sizing: border-box; }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     body {
       margin: 0;
       background: var(--bg);
@@ -27,10 +27,12 @@
       align-items: center;
       min-height: 100vh;
       padding: 20px 0;
+      padding-left: env(safe-area-inset-left);
+      padding-right: env(safe-area-inset-right);
     }
     .wrap { width: 90%; max-width: 1280px; }
 
-    /* プレイヤー（最上部） */
+    /* プレイヤー */
     .player-container {
       width: 100%;
       aspect-ratio: 16 / 9;
@@ -39,9 +41,8 @@
       overflow: hidden;
       box-shadow: 0 4px 20px rgba(0,0,0,0.8);
       margin-bottom: 16px;
-      position: relative;
     }
-    .player-container iframe { width: 100%; height: 100%; border: none; }
+    .player-container iframe { width: 100%; height: 100%; border: none; display: block; }
 
     /* 警告ボックス */
     .warning-box {
@@ -51,11 +52,7 @@
       padding: 16px 20px;
       margin-bottom: 16px;
     }
-    .warning-box h2 {
-      margin: 0 0 8px;
-      font-size: 18px;
-      color: var(--red);
-    }
+    .warning-box h2 { margin: 0 0 8px; font-size: 18px; color: var(--red); }
     .warning-box p { margin: 0; font-size: 14px; line-height: 1.7; color: var(--text); }
 
     /* 証拠ツール */
@@ -67,10 +64,27 @@
       margin-bottom: 16px;
     }
     .evidence-tools h3 { margin: 0 0 12px; font-size: 16px; color: var(--red); }
+
+    /* モバイル案内バナー */
+    .mobile-notice {
+      display: none;
+      background: #2a1a00;
+      border: 1px solid var(--yellow);
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 12px;
+      font-size: 13px;
+      line-height: 1.7;
+      color: #ffe0b2;
+    }
+    .mobile-notice.show { display: block; }
+    .mobile-notice strong { color: var(--yellow); }
+
     .btn-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
     .btn {
       border: none; border-radius: 6px; padding: 10px 16px;
       font-size: 14px; font-weight: 600; cursor: pointer;
+      min-height: 44px;
     }
     .btn:disabled { opacity: 0.4; cursor: not-allowed; }
     .btn-rec { background: var(--red); color: #fff; }
@@ -94,14 +108,13 @@
     .memo-row label { font-size: 13px; color: var(--muted); }
     .memo-row input[type="text"] {
       background: #000; color: var(--text); border: 1px solid var(--border);
-      border-radius: 4px; padding: 8px 10px; font-size: 13px; flex: 1; min-width: 180px;
+      border-radius: 4px; padding: 10px; font-size: 16px; flex: 1; min-width: 180px;
+      min-height: 44px;
     }
 
-    /* クイックメモ */
     .quick-memos { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
-    .quick-memos .btn-memo { padding: 6px 10px; font-size: 12px; }
+    .quick-memos .btn-memo { padding: 8px 12px; font-size: 13px; }
 
-    /* メモ履歴 */
     .memo-log {
       max-height: 160px; overflow-y: auto;
       background: #000; border: 1px solid var(--border); border-radius: 6px;
@@ -111,60 +124,79 @@
     .memo-log p { margin: 2px 0; color: var(--muted); }
     .memo-log p strong { color: var(--green); }
 
-    /* 通報チェックリスト */
     .checklist { margin-bottom: 16px; }
     .checklist h3 { margin: 0 0 10px; font-size: 16px; color: var(--red); }
     .checklist label {
-      display: flex; align-items: flex-start; gap: 8px;
-      font-size: 13px; margin-bottom: 6px; cursor: pointer; color: var(--text);
+      display: flex; align-items: flex-start; gap: 10px;
+      font-size: 14px; margin-bottom: 10px; cursor: pointer; color: var(--text);
+      min-height: 32px;
     }
-    .checklist input { margin-top: 2px; }
+    .checklist input { margin-top: 2px; width: 20px; height: 20px; flex-shrink: 0; }
 
-    /* VOD欄 */
     .vod-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
     .vod-row input {
       flex: 1; min-width: 200px;
       background: #000; color: var(--text); border: 1px solid var(--border);
-      border-radius: 4px; padding: 8px 10px; font-size: 13px;
+      border-radius: 4px; padding: 10px; font-size: 16px; min-height: 44px;
     }
 
-    /* フッター注記 */
     .footer-notes {
       font-size: 12px; color: var(--muted); line-height: 1.7;
       border-top: 1px solid var(--border); padding-top: 16px; margin-bottom: 24px;
     }
     .footer-notes h3 { color: var(--red); font-size: 14px; margin: 16px 0 6px; }
-    .footer-notes ul { margin: 4px 0; padding-left: 20px; }
     .footer-notes a { color: var(--green); }
 
     .toast {
-      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+      position: fixed; bottom: calc(20px + env(safe-area-inset-bottom)); left: 50%;
+      transform: translateX(-50%);
       background: #222; color: #fff; border: 1px solid var(--border);
       padding: 10px 18px; border-radius: 8px; font-size: 13px;
       opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 999;
+      max-width: 90%;
     }
     .toast.show { opacity: 1; }
+
+    /* スマホ向け調整 */
+    @media (max-width: 640px) {
+      body { padding: 10px 0; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+      .wrap { width: 96%; }
+      .evidence-tools { padding: 12px; }
+      .btn-row { gap: 8px; }
+      .btn { flex: 1 1 calc(50% - 8px); min-width: 140px; font-size: 14px; padding: 12px 10px; }
+      .info-grid { grid-template-columns: 1fr; gap: 4px; }
+      .quick-memos .btn-memo { flex: 1 1 calc(33% - 8px); min-width: 90px; }
+      .warning-box { padding: 12px 14px; }
+      .warning-box h2 { font-size: 16px; }
+      .warning-box p { font-size: 13px; }
+      .footer-notes { font-size: 13px; }
+    }
   </style>
 </head>
 <body>
 <div class="wrap">
 
-  <!-- ① プレイヤー（最上部） -->
+  <!-- ① プレイヤー -->
   <div class="player-container">
+    <!-- sandboxを外し、allow属性で必要な権限のみ許可（モバイル互換性向上） -->
     <iframe
       src="https://player.kick.com/tsubanyan?autoplay=true&muted=true"
-      allowfullscreen="true"
-      sandbox="allow-scripts allow-same-origin allow-presentation">
+      allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
+      allowfullscreen="true">
     </iframe>
   </div>
-
-  <!--
-    ▼ 配信状態（LIVE/OFFLINE）表示・非公式API連携は対応策検討後にここへ追加予定
-  -->
 
   <!-- ② 証拠記録ツール -->
   <div class="evidence-tools">
     <h3>📋 証拠記録ツール（監視対象：バクソ）</h3>
+
+    <!-- モバイル案内（JSで表示切替） -->
+    <div id="mobileNotice" class="mobile-notice">
+      <strong>📱 スマートフォンでご利用の場合</strong><br>
+      ブラウザの制限により、このツールの録画・スクリーンショット機能はスマホでは動作しません。
+      証拠を残す場合は<strong>端末標準の画面録画機能</strong>（iOS：コントロールセンター／Android：画面録画）を
+      ご利用ください。クイックメモ・チェックリスト・通報情報コピーはスマホでも利用できます。
+    </div>
 
     <div class="btn-row">
       <button id="startRec" class="btn btn-rec">🔴 証拠録画を開始</button>
@@ -185,7 +217,7 @@
 
     <div class="memo-row">
       <label for="streamTime">配信タイムスタンプ（任意・手動メモ）:</label>
-      <input type="text" id="streamTime" placeholder="例: 01:23:45 付近">
+      <input type="text" id="streamTime" placeholder="例: 01:23:45 付近" inputmode="text">
     </div>
 
     <div class="quick-memos">
@@ -202,7 +234,7 @@
     </div>
   </div>
 
-  <!-- ③ 注意事項：アクティブ判定 -->
+  <!-- ③ 注意事項 -->
   <div class="warning-box">
     <h2>⚠️ アクティブ（活動中）判定についての注意</h2>
     <p>
@@ -215,7 +247,7 @@
     </p>
   </div>
 
-  <!-- ④ 通報チェックリスト -->
+  <!-- ④ チェックリスト -->
   <div class="checklist">
     <h3>✅ 通報前チェックリスト（バクソ）</h3>
     <label><input type="checkbox" id="chk1"> スクリーンショットまたは録画を保存した</label>
@@ -225,13 +257,13 @@
     <label><input type="checkbox" id="chk5"> 証拠は通報目的の私的利用に限定することを理解した</label>
   </div>
 
-  <!-- ⑤ VOD・クリップURL -->
+  <!-- ⑤ VOD欄 -->
   <div class="vod-row">
-    <input type="url" id="vodUrl" placeholder="VOD URL（例: https://kick.com/tsubanyan/videos/...）">
-    <input type="url" id="clipUrl" placeholder="クリップURL（任意）">
+    <input type="url" id="vodUrl" placeholder="VOD URL（例: https://kick.com/tsubanyan/videos/...）" inputmode="url">
+    <input type="url" id="clipUrl" placeholder="クリップURL（任意）" inputmode="url">
   </div>
 
-  <!-- ⑥ フッター注記 -->
+  <!-- ⑥ フッター -->
   <div class="footer-notes">
     <h3>免責事項</h3>
     <p>
@@ -245,6 +277,12 @@
       録画・スクリーンショットは<strong>通報目的の私的利用に限定</strong>してください。
       KickのVODは配信者に帰属し、無断でのダウンロード・再配布はKickの利用規約違反や
       著作権侵害に該当する可能性があります。SNS等への公開は行わないでください。
+    </p>
+
+    <h3>スマートフォンでのご利用について</h3>
+    <p>
+      スマートフォンのブラウザでは、セキュリティ制限により本ツールの録画・スクリーンショット機能は
+      動作しません。証拠を残す場合は端末標準の画面録画機能をご利用ください。
     </p>
 
     <h3>通報手順の要約</h3>
@@ -287,13 +325,30 @@ let recordingStopTime = null;
 let elapsedTimer = null;
 let mediaRecorder = null;
 let recordedChunks = [];
-let displayStream = null;   // 録画・スクショ共有のキャプチャストリーム
+let displayStream = null;
 let videoTrack = null;
 let lastRecordingBlob = null;
 let lastRecordingName = '';
 let quickMemoEntries = [];
 
-// ローカルストレージからメモ履歴を復元
+/* ---------- モバイル判定 ---------- */
+const isMobile =
+  /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
+  (navigator.maxTouchPoints > 1 && window.innerWidth < 1024);
+
+/* ---------- キャプチャAPIの利用可否 ---------- */
+const canCapture =
+  !!navigator.mediaDevices &&
+  typeof navigator.mediaDevices.getDisplayMedia === 'function' &&
+  typeof window.ImageCapture === 'function';
+
+/* ---------- モバイル／非対応環境の案内とボタン無効化 ---------- */
+if (isMobile || !canCapture) {
+  $('mobileNotice').classList.add('show');
+  ['startRec', 'snap', 'stopShare'].forEach(id => { $(id).disabled = true; });
+}
+
+// ローカルストレージ復元
 try {
   const saved = localStorage.getItem('kickMonitorMemos');
   if (saved) {
@@ -341,7 +396,7 @@ async function sha256Hex(arrayBuffer) {
 }
 
 /* ============================================================
-   画面共有ストリーム管理（録画・スクショ共通）
+   画面共有ストリーム管理
 ============================================================ */
 function isCaptureLive() {
   return displayStream
@@ -350,6 +405,9 @@ function isCaptureLive() {
 }
 
 async function ensureCaptureStream() {
+  if (!canCapture) {
+    throw new Error('このブラウザは画面キャプチャに対応していません');
+  }
   if (isCaptureLive()) return displayStream;
 
   const stream = await navigator.mediaDevices.getDisplayMedia({
@@ -359,7 +417,6 @@ async function ensureCaptureStream() {
   displayStream = stream;
   videoTrack = stream.getVideoTracks()[0] || null;
 
-  // ブラウザUIの「共有を停止」でトラックが終了した場合のクリーンアップ
   const vt = videoTrack;
   if (vt) {
     vt.addEventListener('ended', () => {
@@ -388,7 +445,7 @@ function releaseCaptureStream() {
 }
 
 /* ============================================================
-   監視開始からの経過・ページ読み込み表示
+   経過表示
 ============================================================ */
 $('pageLoadedLabel').textContent = isoLocal(pageLoadedAt);
 setInterval(() => {
@@ -396,7 +453,7 @@ setInterval(() => {
 }, 1000);
 
 /* ============================================================
-   録画（MediaRecorder）— 画面共有ストリームを共有
+   録画
 ============================================================ */
 $('startRec').addEventListener('click', async () => {
   try {
@@ -424,7 +481,6 @@ $('startRec').addEventListener('click', async () => {
       a.click();
       URL.revokeObjectURL(url);
 
-      // メタデータ生成
       const memo = $('streamTime').value.trim() || '(未入力)';
       const arrayBuffer = await blob.arrayBuffer();
       const hash = await sha256Hex(arrayBuffer);
@@ -452,7 +508,6 @@ $('startRec').addEventListener('click', async () => {
       metaA.click();
       URL.revokeObjectURL(metaUrl);
 
-      // 表示リセット（画面共有は保持）
       clearInterval(elapsedTimer);
       $('recStatus').textContent = '保存完了';
       $('recElapsed').textContent = '00:00:00';
@@ -479,7 +534,7 @@ $('startRec').addEventListener('click', async () => {
     mediaRecorder.start();
     $('startRec').disabled = true;
     $('stopRec').disabled = false;
-    $('stopShare').disabled = true; // 録画中は共有停止を無効化
+    $('stopShare').disabled = true;
   } catch (err) {
     if (err.name === 'NotAllowedError' || err.name === 'AbortError') {
       showToast('画面共有がキャンセルされました');
@@ -492,12 +547,11 @@ $('startRec').addEventListener('click', async () => {
 $('stopRec').addEventListener('click', () => {
   if (mediaRecorder && mediaRecorder.state !== 'inactive') {
     mediaRecorder.stop();
-    // 画面共有は保持（続けてスクショ可能）
   }
 });
 
 /* ============================================================
-   スクリーンショット（録画なしでも単独で動作）
+   スクリーンショット
 ============================================================ */
 $('snap').addEventListener('click', async () => {
   try {
@@ -568,7 +622,7 @@ function renderMemoLog() {
 }
 
 /* ============================================================
-   証拠ZIP生成（JSZip）
+   証拠ZIP生成
 ============================================================ */
 $('downloadZip').addEventListener('click', async () => {
   if (!lastRecordingBlob) {
@@ -577,7 +631,6 @@ $('downloadZip').addEventListener('click', async () => {
   }
   try {
     const zip = new JSZip();
-
     zip.file(lastRecordingName, lastRecordingBlob);
 
     const meta = [
@@ -606,7 +659,7 @@ $('downloadZip').addEventListener('click', async () => {
 });
 
 /* ============================================================
-   通報情報をクリップボードにコピー
+   通報情報コピー（iOS向けフォールバック付き）
 ============================================================ */
 $('copyReport').addEventListener('click', async () => {
   const lines = [
@@ -621,11 +674,31 @@ $('copyReport').addEventListener('click', async () => {
     '--- クイックメモ ---',
     ...quickMemoEntries.map(m => `[${m.time}] ${m.label}`)
   ];
+  const text = lines.join('\n');
+
+  // モダンAPI（HTTPS必須）
+  if (navigator.clipboard && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast('通報情報をコピーしました');
+      return;
+    } catch (e) { /* フォールバックへ */ }
+  }
+
+  // フォールバック：textarea + execCommand
   try {
-    await navigator.clipboard.writeText(lines.join('\n'));
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
     showToast('通報情報をコピーしました');
   } catch (err) {
-    alert('クリップボードへのコピーに失敗しました: ' + err.message);
+    alert('コピーに失敗しました。お手数ですが手動でコピーしてください:\n\n' + text);
   }
 });
 </script>
