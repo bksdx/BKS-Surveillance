@@ -120,10 +120,7 @@
       color: var(--text);
     }
 
-    /* クイックメモ：カテゴリ別グループ */
-    .quick-memo-group {
-      margin-bottom: 12px;
-    }
+    .quick-memo-group { margin-bottom: 12px; }
     .quick-memo-group-title {
       font-size: 12px;
       color: var(--muted);
@@ -141,7 +138,6 @@
       font-size: 13px;
       min-height: 44px;
     }
-    /* ゼロトレランス項目を強調 */
     .quick-memos .btn-memo.zero-tolerance {
       border: 1px solid var(--red);
       background: #3a0000;
@@ -157,11 +153,7 @@
     .memo-log p { margin: 2px 0; color: var(--muted); }
     .memo-log p strong { color: var(--green); }
 
-    .memo-actions {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 12px;
-    }
+    .memo-actions { display: flex; gap: 10px; margin-bottom: 12px; }
 
     .checklist { margin-bottom: 16px; }
     .checklist h3 { margin: 0 0 10px; font-size: 16px; color: var(--red); }
@@ -415,9 +407,9 @@
     <label><input type="checkbox" id="chk5"> 証拠は通報目的の私的利用に限定することを理解した</label>
   </div>
 
-  <!-- 5. VOD・クリップURL -->
+  <!-- 5. VOD・クリップURL（VODはデフォルト値あり） -->
   <div class="vod-row">
-    <input type="url" id="vodUrl" placeholder="VOD URL（例: https://kick.com/tsubanyan/videos/...）" inputmode="url">
+    <input type="url" id="vodUrl" value="https://kick.com/tsubanyan/videos" placeholder="VOD URL" inputmode="url">
   </div>
   <div class="vod-row">
     <input type="url" id="clipUrl" placeholder="クリップURL（KickでClip作成→「Clip Link」を貼り付け）" inputmode="url">
@@ -522,6 +514,9 @@ let lastRecordingBlob = null;
 let lastRecordingName = '';
 let quickMemoEntries = [];
 
+/* VOD URLのデフォルト値 */
+const DEFAULT_VOD_URL = 'https://kick.com/tsubanyan/videos';
+
 const isMobile =
   /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
   (navigator.maxTouchPoints > 1 && window.innerWidth < 1024);
@@ -536,7 +531,7 @@ if (isMobile || !canCapture) {
   ['startRec', 'snap', 'stopShare'].forEach(id => { $(id).disabled = true; });
 }
 
-/* ローカルストレージ復元 */
+/* ローカルストレージ復元（VODは保存値 > デフォルト） */
 try {
   const saved = localStorage.getItem('kickMonitorMemos');
   if (saved) {
@@ -544,10 +539,12 @@ try {
     renderMemoLog();
   }
   const vod = localStorage.getItem('kickMonitorVodUrl');
-  if (vod) $('vodUrl').value = vod;
+  $('vodUrl').value = (vod !== null && vod !== '') ? vod : DEFAULT_VOD_URL;
   const clip = localStorage.getItem('kickMonitorClipUrl');
   if (clip) $('clipUrl').value = clip;
-} catch (e) { /* 無視 */ }
+} catch (e) {
+  $('vodUrl').value = DEFAULT_VOD_URL;
+}
 
 function formatDuration(ms) {
   const total = Math.floor(ms / 1000);
@@ -711,7 +708,7 @@ $('startRec').addEventListener('click', async () => {
         `監視開始からの経過: ${formatDuration(recordingStartTime - pageLoadedAt)}`,
         `配信タイムスタンプ(手動メモ): ${memo}`,
         `対象URL: https://player.kick.com/tsubanyan`,
-        `VOD URL: ${$('vodUrl').value.trim() || '(未入力)'}`,
+        `VOD URL: ${$('vodUrl').value.trim() || DEFAULT_VOD_URL}`,
         `クリップURL: ${clip}`,
         `ファイル名: ${lastRecordingName}`,
         `SHA-256: ${hash}`,
@@ -872,7 +869,7 @@ $('downloadZip').addEventListener('click', async () => {
       '=== 証拠パッケージ（監視対象：バクソ） ===',
       `ページ読み込み: ${isoLocal(pageLoadedAt)}`,
       `録画ファイル: ${lastRecordingName}`,
-      `VOD URL: ${$('vodUrl').value.trim() || '(未入力)'}`,
+      `VOD URL: ${$('vodUrl').value.trim() || DEFAULT_VOD_URL}`,
       `クリップURL: ${$('clipUrl').value.trim() || '(未入力)'}`,
       '',
       '--- クイックメモ履歴 ---',
@@ -904,7 +901,7 @@ $('copyReport').addEventListener('click', async () => {
     `チャンネルURL: https://kick.com/tsubanyan`,
     `録画開始: ${recordingStartTime ? isoLocal(recordingStartTime) : '(未録画)'}`,
     `配信タイムスタンプ: ${$('streamTime').value.trim() || '(未入力)'}`,
-    `VOD URL: ${$('vodUrl').value.trim() || '(未入力)'}`,
+    `VOD URL: ${$('vodUrl').value.trim() || DEFAULT_VOD_URL}`,
     `クリップURL: ${clip}`,
     '',
     '--- クイックメモ ---',
