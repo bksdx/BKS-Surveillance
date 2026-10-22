@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>tsubanyan 配信監視</title>
+  <style>
+    body {
+      margin: 0;
+      /* 背景を黒に変更 */
+      background-color: #000;
+      color: #fff;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px 0;
+      box-sizing: border-box;
+    }
+
+    .warning-box {
+      width: 90%;
+      max-width: 1280px;
+      /* 警告ボックスの背景も黒に */
+      background: #000;
+      border: 2px solid #ff0000;
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin-bottom: 16px;
+      box-sizing: border-box;
+    }
+
+    .warning-box h2 {
+      margin: 0 0 8px;
+      font-size: 18px;
+      /* タイトルを赤文字に */
+      color: #ff0000;
+    }
+
+    .warning-box p {
+      margin: 0;
+      font-size: 14px;
+      line-height: 1.7;
+      color: #e0e0e0;
+    }
+
+    .player-container {
+      width: 90%;
+      max-width: 1280px;
+      aspect-ratio: 16 / 9;
+      background: #000;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.8);
+    }
+
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    .notice {
+      width: 90%;
+      max-width: 1280px;
+      margin-top: 16px;
+      font-size: 14px;
+      color: #aaa;
+      line-height: 1.7;
+      box-sizing: border-box;
+    }
+
+    .notice ul {
+      margin: 8px 0 0;
+      padding-left: 20px;
+    }
+
+    .notice li {
+      margin-bottom: 6px;
+    }
+
+    .notice strong {
+      color: #fff;
+    }
+
+    /* 「監視時の注意事項」タイトルも赤文字に */
+    .notice > p > strong {
+      color: #ff0000;
+      font-size: 16px;
+    }
+
+    .notice a {
+      color: #53fc18;
+    }
+  </style>
+</head>
+<body>
+  <!-- アクティブ判定に関する注意 -->
+  <div class="warning-box">
+    <h2>⚠️ アクティブ（活動中）判定についての注意</h2>
+    <p>
+      不正な時間稼ぎや放置を防ぐために厳格な「アクティブ（活動中）判定」が導入されており、
+      無言や放置が続くとシステムに「配信していない（放置）」とみなされ、
+      その時間の報酬カウントから除外される。
+    </p>
+    <p style="margin-top: 8px;">
+      監視・記録を行う際は、無言・放置時間が報酬対象外になる場合がある点を考慮してください。
+    </p>
+  </div>
+
+  <div class="player-container">
+    <!--
+      公式プレイヤーURLを使用し、チャット欄を表示させない。
+      sandbox属性で親サイトのCookie等へのアクセスを制限。
+    -->
+    <iframe
+      src="https://player.kick.com/tsubanyan?autoplay=true&muted=true"
+      allowfullscreen="true"
+      sandbox="allow-scripts allow-same-origin allow-presentation">
+    </iframe>
+  </div>
+
+  <div class="notice">
+    <p><strong>監視時の注意事項</strong></p>
+    <ul>
+      <li>
+        <strong>Kickアカウントにはログインしない</strong><br>
+        ログインした状態で直接配信ページを開くと「アクティブな視聴者（ログインユーザー）」として
+        相手の配信実績にカウントされる可能性があります。シークレットモードまたは
+        ログインしていない別ブラウザを使用してください。
+      </li>
+      <li>
+        <strong>埋め込みプレイヤーのチャット欄は開かない</strong><br>
+        チャットの接続・閲覧・書き込みは相手の「エンゲージメント」を上げてしまうため、
+        動画プレイヤー部分（映像と音声）のみを確認してください。
+      </li>
+      <li>
+        <strong>通報はログインした別ブラウザ、または専用フォームから行う</strong><br>
+        迷惑行為を確認し、証拠（スクリーンショットや問題発言のタイムスタンプなど）を
+        確保したら、ご自身のKickアカウントまたはKickのサポート窓口を通じて通報してください。
+      </li>
+    </ul>
+  </div>
+</body>
+</html>
