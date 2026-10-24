@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>バクソ配信監視ツール</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <!-- HLS.js の読み込みを追加 -->
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
   <style>
     :root {
@@ -126,6 +125,29 @@
     .btn-copy { background: #555; color: #fff; }
     .btn-guide { background: #6a1b9a; color: #fff; }
     .btn-clear { background: #555; color: #fff; }
+
+    /* タイムスタンプ表示ボックス（赤字） */
+    .time-display-box {
+      display: none;
+      background: #1a0000;
+      border: 1px solid var(--red);
+      border-radius: 6px;
+      padding: 10px 14px;
+      margin-bottom: 12px;
+      font-size: 14px;
+      font-family: monospace;
+      line-height: 1.6;
+    }
+    .time-display-box.show { display: block; }
+    .time-display-box .time-label {
+      color: var(--red);
+      font-weight: bold;
+    }
+    .time-display-box .time-value {
+      color: var(--red);
+      font-weight: bold;
+      font-size: 16px;
+    }
 
     .info-grid {
       display: grid;
@@ -311,6 +333,12 @@
       <button id="stopShare" class="btn btn-stop" disabled>ストリームを停止</button>
       <button id="downloadZip" class="btn btn-zip" disabled>証拠ZIPを生成</button>
       <button id="copyReport" class="btn btn-copy">通報情報をコピー</button>
+    </div>
+
+    <!-- タイムスタンプ表示ボックス -->
+    <div class="time-display-box" id="timeDisplayBox">
+      <div><span class="time-label">録画開始時刻:</span> <span class="time-value" id="recStartTimeDisplay">—</span></div>
+      <div><span class="time-label" id="currentTimeLabel">現在時刻:</span> <span class="time-value" id="currentTimeDisplay">—</span></div>
     </div>
 
     <div class="info-grid">
@@ -556,7 +584,7 @@ let lastRecordingBlob = null;
 let lastRecordingName = '';
 let quickMemoEntries = [];
 
-/* Cloudflare WorkersのプロキシURL（ご自身のURLに合わせてください） */
+/* Cloudflare WorkersのプロキシURL */
 const PROXY_BASE = 'https://kick-proxy.bakusodx.workers.dev';
 const DEFAULT_VOD_URL = 'https://kick.com/tsubanyan/videos';
 
@@ -597,6 +625,11 @@ function formatDuration(ms) {
   const m = String(Math.floor((total % 3600) / 60)).padStart(2, '0');
   const s = String(total % 60).padStart(2, '0');
   return `${h}:${m}:${s}`;
+}
+
+/* ローカル時刻を HH:MM:SS 形式で返す */
+function formatLocalTime(date = new Date()) {
+  return date.toLocaleTimeString('ja-JP', { hour12: false });
 }
 
 function timestampForFile(date = new Date()) {
@@ -640,10 +673,6 @@ $('enableAudio').addEventListener('click', () => {
   const btn = $('enableAudio');
 
   iframe.src = `https://player.kick.com/tsubanyan?autoplay=true&muted=${!audioEnabled}`;
-
-  // 録画用ストリームの音声も同期させる
-  const recVideo = $('recordSource');
-  if (recVideo) recVideo.muted = !audioEnabled;
 
   if (audioEnabled) {
     btn.textContent = '音声を無効にする';
@@ -721,6 +750,10 @@ async function prepareHlsStream() {
     throw new Error('このブラウザはHLSに対応していません');
   }
 
+  // 録画専用のvideo要素からの音声再生を完全に防止する
+  video.volume = 0;
+  video.muted = true;
+
   await video.play().catch(() => {});
   return video;
 }
@@ -760,9 +793,8 @@ $('startRec').addEventListener('click', async () => {
     
     const video = await prepareHlsStream();
     
-    // 録画時は音声を有効にする（自動再生ポリシーはユーザー操作で回避）
-    video.muted = false;
-    // captureStream() は非表示のvideo要素でも動作する
+    // 録画用ストリームから音声トラックを取得するため、一時的にミュートを解除する必要はない
+    // （muted でも captureStream() の音声トラックは有効）
     const stream = video.captureStream ? video.captureStream() : video.mozCaptureStream();
 
     const mimeType = pickMimeType();
@@ -831,6 +863,11 @@ $('startRec').addEventListener('click', async () => {
       $('stopRec').disabled = true;
       $('downloadZip').disabled = false;
       $('stopShare').disabled = false;
+      
+      // タイムスタンプ表示を停止状態に更新
+      $('currentTimeLabel').textContent = '録画終了時刻:';
+      $('currentTimeDisplay').textContent = formatLocalTime(recordingStopTime);
+      
       showToast('録画とメタデータを保存しました');
     };
 
@@ -841,10 +878,18 @@ $('startRec').addEventListener('click', async () => {
     $('recElapsed').textContent = '00:00:00';
     $('downloadZip').disabled = true;
 
+    // タイムスタンプ表示の初期化・表示
+    $('timeDisplayBox').classList.add('show');
+    $('recStartTimeDisplay').textContent = formatLocalTime(recordingStartTime);
+    $('currentTimeLabel').textContent = '現在時刻:';
+    $('currentTimeDisplay').textContent = formatLocalTime(new Date());
+
     clearInterval(elapsedTimer);
     elapsedTimer = setInterval(() => {
       $('recElapsed').textContent =
         formatDuration(Date.now() - recordingStartTime.getTime());
+      // 録画中は現在時刻をリアルタイム更新
+      $('currentTimeDisplay').textContent = formatLocalTime(new Date());
     }, 1000);
 
     mediaRecorder.start(1000);
@@ -853,6 +898,7 @@ $('startRec').addEventListener('click', async () => {
     $('stopShare').disabled = false;
   } catch (err) {
     $('recStatus').textContent = '待機中';
+    $('timeDisplayBox').classList.remove('show');
     if (err.message.includes('オフライン') || err.message.includes('playback_url')) {
       alert('配信がオフラインのため録画できません。');
     } else {
@@ -874,9 +920,7 @@ $('snap').addEventListener('click', async () => {
   try {
     const video = $('recordSource');
     if (!video.videoWidth) {
-      // まだHLSが準備されていない場合は準備する
       await prepareHlsStream();
-      // 準備後、描画されるまで少し待つ
       await new Promise(r => setTimeout(r, 1000));
     }
 
