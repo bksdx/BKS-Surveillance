@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>バクソ配信監視ツール</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <!-- HLS.js の読み込みを追加 -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
   <style>
     :root {
       --bg: #000;
@@ -42,6 +44,15 @@
       margin-bottom: 8px;
     }
     .player-container iframe { width: 100%; height: 100%; border: none; display: block; }
+
+    /* 録画専用video要素（画面には出さない） */
+    #recordSource {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
 
     .player-controls {
       display: flex;
@@ -269,6 +280,9 @@
     </iframe>
   </div>
 
+  <!-- 録画専用video要素（バックエンドでHLSを読み込む用） -->
+  <video id="recordSource" muted playsinline></video>
+
   <!-- プレイヤー操作（音声トグルスイッチ） -->
   <div class="player-controls">
     <button id="enableAudio" class="btn btn-audio">音声を有効にする</button>
@@ -294,7 +308,7 @@
       <button id="startRec" class="btn btn-rec">証拠録画を開始</button>
       <button id="stopRec" class="btn btn-stop" disabled>録画を停止・保存</button>
       <button id="snap" class="btn btn-snap">スクリーンショット</button>
-      <button id="stopShare" class="btn btn-stop" disabled>画面共有を停止</button>
+      <button id="stopShare" class="btn btn-stop" disabled>ストリームを停止</button>
       <button id="downloadZip" class="btn btn-zip" disabled>証拠ZIPを生成</button>
       <button id="copyReport" class="btn btn-copy">通報情報をコピー</button>
     </div>
@@ -538,14 +552,15 @@ let recordingStopTime = null;
 let elapsedTimer = null;
 let mediaRecorder = null;
 let recordedChunks = [];
-let displayStream = null;
-let videoTrack = null;
 let lastRecordingBlob = null;
 let lastRecordingName = '';
 let quickMemoEntries = [];
 
-/* VOD URLのデフォルト値 */
+/* Cloudflare WorkersのプロキシURL（ご自身のURLに合わせてください） */
+const PROXY_BASE = 'https://kick-proxy.bakusodx.workers.dev';
 const DEFAULT_VOD_URL = 'https://kick.com/tsubanyan/videos';
+
+let hlsInstance = null;
 
 const isMobile =
   /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
@@ -561,7 +576,7 @@ if (isMobile || !canCapture) {
   ['startRec', 'snap', 'stopShare'].forEach(id => { $(id).disabled = true; });
 }
 
-/* ローカルストレージ復元（VODは保存値 > デフォルト） */
+/* ローカルストレージ復元 */
 try {
   const saved = localStorage.getItem('kickMonitorMemos');
   if (saved) {
@@ -615,7 +630,7 @@ async function sha256Hex(arrayBuffer) {
 }
 
 /* ============================================================
-   音声トグルスイッチ（ユーザー操作をトリガーに再読み込み）
+   音声トグルスイッチ
 ============================================================ */
 let audioEnabled = false;
 
@@ -625,6 +640,10 @@ $('enableAudio').addEventListener('click', () => {
   const btn = $('enableAudio');
 
   iframe.src = `https://player.kick.com/tsubanyan?autoplay=true&muted=${!audioEnabled}`;
+
+  // 録画用ストリームの音声も同期させる
+  const recVideo = $('recordSource');
+  if (recVideo) recVideo.muted = !audioEnabled;
 
   if (audioEnabled) {
     btn.textContent = '音声を無効にする';
@@ -663,7 +682,51 @@ document.addEventListener('keydown', (e) => {
 });
 
 /* ============================================================
-   録画用MIMEタイプ選択（H.264優先でコマ落ちを抑える）
+   HLSストリームの準備（バックエンドプロキシ経由）
+============================================================ */
+async function prepareHlsStream() {
+  const res = await fetch(`${PROXY_BASE}/playback/tsubanyan`);
+  if (!res.ok) throw new Error('playback-urlの取得に失敗');
+  const data = await res.json();
+  
+  let playbackUrl = data.playback_url;
+  if (!playbackUrl && data.data) {
+    playbackUrl = (typeof data.data === 'string') ? data.data : data.data.playback_url;
+  }
+  if (!playbackUrl) throw new Error('playback_urlが見つかりません');
+
+  const video = $('recordSource');
+  if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+
+  if (window.Hls && Hls.isSupported()) {
+    hlsInstance = new Hls({
+      loader: class extends Hls.DefaultConfig.loader {
+        load(context, config, callbacks) {
+          const proxied = `${PROXY_BASE}/hls?url=${encodeURIComponent(context.url)}`;
+          super.load({ ...context, url: proxied }, config, callbacks);
+        }
+      },
+    });
+    hlsInstance.loadSource(playbackUrl);
+    hlsInstance.attachMedia(video);
+    await new Promise((resolve, reject) => {
+      hlsInstance.on(Hls.Events.MANIFEST_PARSED, resolve);
+      hlsInstance.on(Hls.Events.ERROR, (_, d) => { if (d.fatal) reject(new Error(d.type)); });
+      setTimeout(() => reject(new Error('HLS読み込みタイムアウト')), 15000);
+    });
+  } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    video.src = playbackUrl;
+    await video.play();
+  } else {
+    throw new Error('このブラウザはHLSに対応していません');
+  }
+
+  await video.play().catch(() => {});
+  return video;
+}
+
+/* ============================================================
+   録画用MIMEタイプ選択
 ============================================================ */
 function pickMimeType() {
   const candidates = [
@@ -681,59 +744,6 @@ function pickMimeType() {
 }
 
 /* ============================================================
-   画面共有ストリーム管理（720p / 30fps上限）
-============================================================ */
-function isCaptureLive() {
-  return displayStream
-    && displayStream.getVideoTracks().length > 0
-    && displayStream.getVideoTracks()[0].readyState === 'live';
-}
-
-async function ensureCaptureStream() {
-  if (!canCapture) {
-    throw new Error('このブラウザは画面キャプチャに対応していません');
-  }
-  if (isCaptureLive()) return displayStream;
-
-  const stream = await navigator.mediaDevices.getDisplayMedia({
-    video: {
-      frameRate: { ideal: 30, max: 30 },
-      width:    { ideal: 1280, max: 1280 },
-      height:   { ideal: 720,  max: 720 }
-    },
-    audio: true
-  });
-  displayStream = stream;
-  videoTrack = stream.getVideoTracks()[0] || null;
-
-  const vt = videoTrack;
-  if (vt) {
-    vt.addEventListener('ended', () => {
-      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        try { mediaRecorder.stop(); } catch (e) { /* noop */ }
-      }
-      displayStream = null;
-      videoTrack = null;
-      $('stopShare').disabled = true;
-    });
-  }
-  $('stopShare').disabled = false;
-  return stream;
-}
-
-function releaseCaptureStream() {
-  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-    try { mediaRecorder.stop(); } catch (e) { /* noop */ }
-  }
-  if (displayStream) {
-    displayStream.getTracks().forEach(t => t.stop());
-    displayStream = null;
-  }
-  videoTrack = null;
-  $('stopShare').disabled = true;
-}
-
-/* ============================================================
    経過表示
 ============================================================ */
 $('pageLoadedLabel').textContent = isoLocal(pageLoadedAt);
@@ -742,12 +752,18 @@ setInterval(() => {
 }, 1000);
 
 /* ============================================================
-   録画（コマ落ち対策版）
+   録画（HLSストリームから直接キャプチャ）
 ============================================================ */
 $('startRec').addEventListener('click', async () => {
   try {
-    const stream = await ensureCaptureStream();
-    videoTrack = stream.getVideoTracks()[0];
+    $('recStatus').textContent = 'HLSストリーム取得中...';
+    
+    const video = await prepareHlsStream();
+    
+    // 録画時は音声を有効にする（自動再生ポリシーはユーザー操作で回避）
+    video.muted = false;
+    // captureStream() は非表示のvideo要素でも動作する
+    const stream = video.captureStream ? video.captureStream() : video.mozCaptureStream();
 
     const mimeType = pickMimeType();
     const options = {
@@ -814,8 +830,8 @@ $('startRec').addEventListener('click', async () => {
       $('startRec').disabled = false;
       $('stopRec').disabled = true;
       $('downloadZip').disabled = false;
-      $('stopShare').disabled = !isCaptureLive();
-      showToast('録画とメタデータを保存しました（画面共有は継続中）');
+      $('stopShare').disabled = false;
+      showToast('録画とメタデータを保存しました');
     };
 
     recordingStartTime = new Date();
@@ -834,10 +850,11 @@ $('startRec').addEventListener('click', async () => {
     mediaRecorder.start(1000);
     $('startRec').disabled = true;
     $('stopRec').disabled = false;
-    $('stopShare').disabled = true;
+    $('stopShare').disabled = false;
   } catch (err) {
-    if (err.name === 'NotAllowedError' || err.name === 'AbortError') {
-      showToast('画面共有がキャンセルされました');
+    $('recStatus').textContent = '待機中';
+    if (err.message.includes('オフライン') || err.message.includes('playback_url')) {
+      alert('配信がオフラインのため録画できません。');
     } else {
       alert('録画を開始できませんでした: ' + err.message);
     }
@@ -851,21 +868,23 @@ $('stopRec').addEventListener('click', () => {
 });
 
 /* ============================================================
-   スクリーンショット
+   スクリーンショット（HLSのvideo要素からキャプチャ）
 ============================================================ */
 $('snap').addEventListener('click', async () => {
   try {
-    const stream = await ensureCaptureStream();
-    const track = stream.getVideoTracks()[0];
-    if (!track) throw new Error('映像トラックが取得できませんでした');
+    const video = $('recordSource');
+    if (!video.videoWidth) {
+      // まだHLSが準備されていない場合は準備する
+      await prepareHlsStream();
+      // 準備後、描画されるまで少し待つ
+      await new Promise(r => setTimeout(r, 1000));
+    }
 
     const now = new Date();
-    const imageCapture = new ImageCapture(track);
-    const bitmap = await imageCapture.grabFrame();
     const canvas = document.createElement('canvas');
-    canvas.width = bitmap.width;
-    canvas.height = bitmap.height;
-    canvas.getContext('2d').drawImage(bitmap, 0, 0);
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
+    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
 
     const a = document.createElement('a');
     a.href = canvas.toDataURL('image/png');
@@ -873,20 +892,22 @@ $('snap').addEventListener('click', async () => {
     a.click();
     showToast('スクリーンショットを保存しました');
   } catch (err) {
-    if (err.name === 'NotAllowedError' || err.name === 'AbortError') {
-      showToast('画面共有がキャンセルされました');
-    } else {
-      alert('スクリーンショットに失敗しました: ' + err.message);
-    }
+    alert('スクリーンショットに失敗しました: ' + err.message);
   }
 });
 
 /* ============================================================
-   画面共有停止
+   ストリーム停止（HLSインスタンスの破棄）
 ============================================================ */
 $('stopShare').addEventListener('click', () => {
-  releaseCaptureStream();
-  showToast('画面共有を停止しました');
+  if (hlsInstance) {
+    hlsInstance.destroy();
+    hlsInstance = null;
+  }
+  const video = $('recordSource');
+  video.src = '';
+  video.load();
+  showToast('ライブストリームを停止しました');
 });
 
 /* ============================================================
@@ -974,7 +995,7 @@ $('downloadZip').addEventListener('click', async () => {
 });
 
 /* ============================================================
-   通報情報コピー（Kick送信用：監視対象はTsubanyan表記）
+   通報情報コピー
 ============================================================ */
 $('copyReport').addEventListener('click', async () => {
   const clip = $('clipUrl').value.trim() || '(未入力)';
