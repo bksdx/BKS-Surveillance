@@ -1166,20 +1166,24 @@ $('copyReport').addEventListener('click', async () => {
     jaMemos.push(`[${m.time}] ${jaLabel}`);
   });
 
+  const enIntro = hasZeroTolerance
+    ? 'I am writing to formally report a ZERO TOLERANCE VIOLATION of the Kick Community Guidelines by the following streamer.'
+    : 'I am writing to formally report a violation of the Kick Community Guidelines by the following streamer.';
+
+  const jaIntro = hasZeroTolerance
+    ? '下記のKick配信者による重大なコミュニティガイドライン違反を報告します。'
+    : '下記のKick配信者によるコミュニティガイドライン違反を報告します。';
+
   const enSubject = hasZeroTolerance 
     ? `[URGENT] Report: Zero Tolerance Violation - Tsubanyan` 
     : `Report: Community Guidelines Violation - Tsubanyan`;
-  
-  const jaSubject = hasZeroTolerance 
-    ? `[重大な違反行為（ゼロトレランス違反）] コミュニティガイドライン違反の報告 - Tsubanyan` 
-    : `コミュニティガイドライン違反の報告 - Tsubanyan`;
 
   const enLines = [
     '=== Report to Kick Moderation Team ===',
     '',
     'To the Kick Moderation Team,',
     '',
-    'I am writing to formally report a violation of the Kick Community Guidelines by the following streamer.',
+    enIntro,
     '',
     `Target: Tsubanyan`,
     `Channel URL: https://kick.com/tsubanyan`,
@@ -1193,10 +1197,30 @@ $('copyReport').addEventListener('click', async () => {
     ''
   ];
 
+  const middleLines = [
+    '==================================================',
+    '上記を送信してください。',
+    '',
+    '推奨件名',
+    enSubject
+  ];
+
+  if (hasZeroTolerance) {
+    middleLines.push('※重大な違反行為が選択されているため、件名を変更しています。');
+  }
+
+  middleLines.push(
+    '',
+    hasZeroTolerance ? 'クリップURLはKick上で手動生成したクリップのURLです。' : '上記クリップURLはKick上で手動生成したクリップです。',
+    'スクリーンショット・録画ファイルは別途添付してください。',
+    '',
+    '【英文の日本語訳】'
+  );
+
   const jaLines = [
     '=== Kick運営御中 ===',
     '',
-    '下記のKick配信者によるコミュニティガイドライン違反を報告します。',
+    jaIntro,
     '',
     `監視対象: Tsubanyan`,
     `チャンネルURL: https://kick.com/tsubanyan`,
@@ -1206,33 +1230,13 @@ $('copyReport').addEventListener('click', async () => {
     `クリップURL: ${clipJa}`,
     '',
     '--- 規約違反項目と発生日時 ---',
-    ...jaMemos,
-    ''
+    ...jaMemos
   ];
-
-  const noteLines = [
-    '--- 補足 (送信前に削除してください) ---',
-    '推奨件名（件名欄にコピー＆ペーストしてください）:',
-    enSubject
-  ];
-
-  if (hasZeroTolerance) {
-    noteLines.push('※重大な違反行為が選択されているため、件名を変更しています。');
-  }
-
-  noteLines.push(
-    '',
-    '上記クリップURLはKick上で手動生成したクリップです。',
-    'スクリーンショット・録画ファイルは別途添付してください。'
-  );
 
   const finalText = [
     ...enLines,
-    '==================================================',
-    '上記を送信してください。英語件名は補足に記載されています。',
-    '',
-    ...jaLines,
-    ...noteLines
+    ...middleLines,
+    ...jaLines
   ].join('\n');
 
   if (navigator.clipboard && window.isSecureContext) {
