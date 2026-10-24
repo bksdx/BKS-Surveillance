@@ -6,6 +6,7 @@
   <title>バクソ配信監視ツール</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ts-ebml@3.0.1/dist/ts-ebml.min.js"></script>
   <style>
     :root {
       --bg: #000;
@@ -300,7 +301,8 @@
       id="kickPlayer"
       src="https://player.kick.com/tsubanyan?autoplay=true&muted=true"
       allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
-      allowfullscreen="true">
+      allowfullscreen="true"
+      playsinline>
     </iframe>
   </div>
 
@@ -308,7 +310,7 @@
 
   <div class="player-controls">
     <button id="enableAudio" class="btn btn-audio">音声を有効にする</button>
-    <span class="note">
+    <span class="note" id="audioNote">
       ブラウザの自動再生ポリシーにより、初期状態はミュートで自動再生されます。
       ボタンを押すと音声の有効／無効を切り替えられます。
       プレイヤー内のスピーカーアイコンでも解除できます。
@@ -570,6 +572,10 @@ const DEFAULT_VOD_URL = 'https://kick.com/tsubanyan/videos';
 
 let hlsInstance = null;
 
+/* iOS判定を追加 */
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+              (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
 const isMobile =
   /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
   (navigator.maxTouchPoints > 1 && window.innerWidth < 1024);
@@ -582,6 +588,14 @@ const canCapture =
 if (isMobile || !canCapture) {
   $('mobileNotice').classList.add('show');
   ['startRec', 'snap', 'stopShare'].forEach(id => { $(id).disabled = true; });
+}
+
+/* iOSの場合、音声ボタンの表示と案内文を変更 */
+if (isIOS) {
+  $('enableAudio').textContent = 'プレイヤー内のスピーカーをタップ';
+  $('audioNote').innerHTML =
+    'iOSの仕様により、親ページのボタンから音声を有効にすることはできません。<br>' +
+    'プレイヤー内の<strong>スピーカーアイコン</strong>を直接タップして音声を有効にしてください。';
 }
 
 try {
@@ -671,6 +685,12 @@ async function fetchStreamStartedAt() {
 let audioEnabled = false;
 
 $('enableAudio').addEventListener('click', () => {
+  /* iOSの場合はiframeの再読み込みを行わず、案内を表示する */
+  if (isIOS) {
+    showToast('プレイヤー内のスピーカーアイコンをタップしてください');
+    return;
+  }
+
   audioEnabled = !audioEnabled;
   const iframe = $('kickPlayer');
   const btn = $('enableAudio');
@@ -796,7 +816,29 @@ $('startRec').addEventListener('click', async () => {
     mediaRecorder.onstop = async () => {
       recordingStopTime = new Date();
 
-      const blob = new Blob(recordedChunks, { type: 'video/webm' });
+      let blob = new Blob(recordedChunks, { type: 'video/webm' });
+      
+      try {
+        const arrayBuffer = await blob.arrayBuffer();
+        const decoder = new EBML.Decoder();
+        const reader = new EBML.Reader();
+        const tools = EBML.tools;
+        const encoder = new EBML.Encoder();
+
+        const ebmlElms = decoder.decode(arrayBuffer);
+        ebmlElms.forEach(elm => {
+          reader.read(elm);
+        });
+        reader.stop();
+
+        const refinedMetadataBuf = tools.makeMetadataSeekable(reader.metadatas, reader.duration, reader.cues);
+        const body = arrayBuffer.slice(reader.metadataSize);
+        
+        blob = new Blob([refinedMetadataBuf, body], { type: 'video/webm' });
+      } catch (e) {
+        console.error('WebMのシークメタデータ修復に失敗しました。元のデータを使用します。', e);
+      }
+
       lastRecordingBlob = blob;
       lastRecordingName = `evidence_${timestampForFile(recordingStartTime)}.webm`;
 
@@ -809,8 +851,9 @@ $('startRec').addEventListener('click', async () => {
 
       const memo = $('streamTime').value.trim() || '(未入力)';
       const clip = $('clipUrl').value.trim() || '(未入力)';
-      const arrayBuffer = await blob.arrayBuffer();
-      const hash = await sha256Hex(arrayBuffer);
+      
+      const arrayBufferForHash = await blob.arrayBuffer();
+      const hash = await sha256Hex(arrayBufferForHash);
       
       const meta = [
         '=== 証拠記録メタデータ（監視対象：バクソ） ===',
@@ -841,10 +884,8 @@ $('startRec').addEventListener('click', async () => {
       clearInterval(elapsedTimer);
       $('recStatus').textContent = '保存完了';
       
-      // --- 修正箇所: 経過時間をゼロリセットせず、最終的な録画長を表示する ---
       const finalDuration = recordingStopTime.getTime() - recordingStartTime.getTime();
       $('recElapsed').textContent = formatDuration(finalDuration);
-      // -----------------------------------------------------------------
 
       $('startRec').disabled = false;
       $('stopRec').disabled = true;
