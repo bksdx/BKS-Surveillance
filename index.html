@@ -44,7 +44,6 @@
     }
     .player-container iframe { width: 100%; height: 100%; border: none; display: block; }
 
-    /* 録画専用video要素（画面には出さない） */
     #recordSource {
       position: absolute;
       width: 1px;
@@ -96,7 +95,6 @@
     }
     .evidence-tools h3 { margin: 0 0 12px; font-size: 16px; color: var(--red); }
 
-    /* リアルタイム時計 */
     .realtime-clock {
       font-family: monospace;
       font-size: 15px;
@@ -140,7 +138,6 @@
     .btn-guide { background: #6a1b9a; color: #fff; }
     .btn-clear { background: #555; color: #fff; }
 
-    /* タイムスタンプ表示ボックス（赤字・録画情報の集約） */
     .time-display-box {
       display: none;
       background: #1a0000;
@@ -298,7 +295,6 @@
 <body>
 <div class="wrap">
 
-  <!-- 1. プレイヤー -->
   <div class="player-container">
     <iframe
       id="kickPlayer"
@@ -308,10 +304,8 @@
     </iframe>
   </div>
 
-  <!-- 録画専用video要素（バックエンドでHLSを読み込む用） -->
   <video id="recordSource" muted playsinline></video>
 
-  <!-- プレイヤー操作（音声トグルスイッチ） -->
   <div class="player-controls">
     <button id="enableAudio" class="btn btn-audio">音声を有効にする</button>
     <span class="note">
@@ -321,11 +315,9 @@
     </span>
   </div>
 
-  <!-- 2. 証拠記録ツール -->
   <div class="evidence-tools">
-    <h3>バクソ配信監視ツール</h3>
+    <h3>証拠記録ツール</h3>
 
-    <!-- リアルタイムの年月日時刻 -->
     <div class="realtime-clock" id="realtimeClock">----年--月--日 --:--:--</div>
 
     <div id="mobileNotice" class="mobile-notice">
@@ -344,7 +336,6 @@
       <button id="copyReport" class="btn btn-copy">通報情報をコピー</button>
     </div>
 
-    <!-- タイムスタンプ表示ボックス（録画情報の一元管理） -->
     <div class="time-display-box" id="timeDisplayBox">
       <div><span class="time-label">録画状態:</span> <span class="time-value" id="recStatus">待機中</span></div>
       <div><span class="time-label">録画開始時時刻:</span> <span class="time-value" id="recStartTimeDisplay">—</span></div>
@@ -360,7 +351,6 @@
 
     <p class="memo-heading">クイックメモ（Kick規約違反の種別をワンタップ記録）</p>
 
-    <!-- ゼロトレランス -->
     <div class="quick-memo-group">
       <p class="quick-memo-group-title">ゼロトレランス（即時永久停止対象）</p>
       <div class="quick-memos">
@@ -371,7 +361,6 @@
       </div>
     </div>
 
-    <!-- 性的コンテンツ -->
     <div class="quick-memo-group">
       <p class="quick-memo-group-title">性的コンテンツ</p>
       <div class="quick-memos">
@@ -382,7 +371,6 @@
       </div>
     </div>
 
-    <!-- 暴力・安全 -->
     <div class="quick-memo-group">
       <p class="quick-memo-group-title">暴力・公共安全</p>
       <div class="quick-memos">
@@ -394,7 +382,6 @@
       </div>
     </div>
 
-    <!-- ヘイト・ハラスメント -->
     <div class="quick-memo-group">
       <p class="quick-memo-group-title">ヘイト・ハラスメント</p>
       <div class="quick-memos">
@@ -405,7 +392,6 @@
       </div>
     </div>
 
-    <!-- 自傷・薬物 -->
     <div class="quick-memo-group">
       <p class="quick-memo-group-title">自傷・薬物</p>
       <div class="quick-memos">
@@ -415,7 +401,6 @@
       </div>
     </div>
 
-    <!-- 詐欺・真正性 -->
     <div class="quick-memo-group">
       <p class="quick-memo-group-title">詐欺・真正性</p>
       <div class="quick-memos">
@@ -426,7 +411,6 @@
       </div>
     </div>
 
-    <!-- その他 -->
     <div class="quick-memo-group">
       <p class="quick-memo-group-title">その他</p>
       <div class="quick-memos">
@@ -448,7 +432,6 @@
     </div>
   </div>
 
-  <!-- 3. 注意事項 -->
   <div class="notice-box">
     <h2>注意事項</h2>
     <ol>
@@ -475,7 +458,6 @@
     </ol>
   </div>
 
-  <!-- 4. 通報前チェックリスト -->
   <div class="checklist">
     <h3>通報前チェックリスト</h3>
     <label><input type="checkbox" id="chk1"> スクリーンショットまたは録画を保存した</label>
@@ -484,7 +466,6 @@
     <label><input type="checkbox" id="chk4"> チャンネル名・配信URLを確認した</label>
   </div>
 
-  <!-- 5. VOD・クリップURL（VODはデフォルト値あり） -->
   <div class="vod-row">
     <input type="url" id="vodUrl" value="https://kick.com/tsubanyan/videos" placeholder="VOD URL" inputmode="url">
   </div>
@@ -493,7 +474,6 @@
     <button id="openClipGuide" class="btn btn-guide" type="button">クリップ作成方法</button>
   </div>
 
-  <!-- 6. フッター注記 -->
   <div class="footer-notes">
     <h3>免責事項</h3>
     <p>
@@ -547,7 +527,6 @@
 
 <div id="toast" class="toast"></div>
 
-<!-- クリップ作成方法モーダル -->
 <div id="clipGuideModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="clipGuideTitle">
   <div class="modal">
     <h3 id="clipGuideTitle">Kickでのクリップ作成手順</h3>
@@ -574,9 +553,6 @@
 </div>
 
 <script>
-/* ============================================================
-   共通ユーティリティ
-============================================================ */
 const $ = id => document.getElementById(id);
 const pageLoadedAt = new Date();
 let recordingStartTime = null;
@@ -587,9 +563,8 @@ let recordedChunks = [];
 let lastRecordingBlob = null;
 let lastRecordingName = '';
 let quickMemoEntries = [];
-let streamStartedAt = null; // 配信開始時刻のタイムスタンプ（ミリ秒）
+let streamStartedAt = null;
 
-/* Cloudflare WorkersのプロキシURL */
 const PROXY_BASE = 'https://kick-proxy.bakusodx.workers.dev';
 const DEFAULT_VOD_URL = 'https://kick.com/tsubanyan/videos';
 
@@ -609,7 +584,6 @@ if (isMobile || !canCapture) {
   ['startRec', 'snap', 'stopShare'].forEach(id => { $(id).disabled = true; });
 }
 
-/* ローカルストレージ復元 */
 try {
   const saved = localStorage.getItem('kickMonitorMemos');
   if (saved) {
@@ -676,17 +650,11 @@ async function sha256Hex(arrayBuffer) {
     .map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-/* ============================================================
-   リアルタイム時計の更新
-============================================================ */
 setInterval(() => {
   $('realtimeClock').textContent = formatRealtimeClock();
 }, 1000);
 $('realtimeClock').textContent = formatRealtimeClock();
 
-/* ============================================================
-   配信開始時刻の取得（ギャップ計算用）
-============================================================ */
 async function fetchStreamStartedAt() {
   try {
     const res = await fetch(`${PROXY_BASE}/channel/tsubanyan`);
@@ -700,9 +668,6 @@ async function fetchStreamStartedAt() {
   }
 }
 
-/* ============================================================
-   音声トグルスイッチ
-============================================================ */
 let audioEnabled = false;
 
 $('enableAudio').addEventListener('click', () => {
@@ -723,9 +688,6 @@ $('enableAudio').addEventListener('click', () => {
   }
 });
 
-/* ============================================================
-   VOD・クリップURLのローカル保存
-============================================================ */
 $('vodUrl').addEventListener('input', () => {
   try { localStorage.setItem('kickMonitorVodUrl', $('vodUrl').value); } catch (e) {}
 });
@@ -733,9 +695,6 @@ $('clipUrl').addEventListener('input', () => {
   try { localStorage.setItem('kickMonitorClipUrl', $('clipUrl').value); } catch (e) {}
 });
 
-/* ============================================================
-   クリップ作成方法モーダル
-============================================================ */
 function openClipGuide() { $('clipGuideModal').classList.add('show'); }
 function closeClipGuide() { $('clipGuideModal').classList.remove('show'); }
 
@@ -748,9 +707,6 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') closeClipGuide();
 });
 
-/* ============================================================
-   HLSストリームの準備（バックエンドプロキシ経由）
-============================================================ */
 async function prepareHlsStream() {
   const res = await fetch(`${PROXY_BASE}/playback/tsubanyan`);
   if (!res.ok) throw new Error('playback-urlの取得に失敗');
@@ -795,9 +751,6 @@ async function prepareHlsStream() {
   return video;
 }
 
-/* ============================================================
-   録画用MIMEタイプ選択
-============================================================ */
 function pickMimeType() {
   const candidates = [
     'video/webm;codecs=h264,opus',
@@ -813,9 +766,6 @@ function pickMimeType() {
   return '';
 }
 
-/* ============================================================
-   録画（HLSストリームから直接キャプチャ）
-============================================================ */
 $('startRec').addEventListener('click', async () => {
   try {
     $('recStatus').textContent = 'HLSストリーム取得中...';
@@ -890,13 +840,17 @@ $('startRec').addEventListener('click', async () => {
 
       clearInterval(elapsedTimer);
       $('recStatus').textContent = '保存完了';
-      $('recElapsed').textContent = '00:00:00';
+      
+      // --- 修正箇所: 経過時間をゼロリセットせず、最終的な録画長を表示する ---
+      const finalDuration = recordingStopTime.getTime() - recordingStartTime.getTime();
+      $('recElapsed').textContent = formatDuration(finalDuration);
+      // -----------------------------------------------------------------
+
       $('startRec').disabled = false;
       $('stopRec').disabled = true;
       $('downloadZip').disabled = false;
       $('stopShare').disabled = false;
 
-      // 録画終了時刻（最後の映像の時刻）を計算して固定表示
       if (streamStartedAt && video) {
         const finalEndTime = new Date(streamStartedAt + (video.currentTime * 1000));
         if (!isNaN(finalEndTime.getTime())) {
@@ -917,11 +871,9 @@ $('startRec').addEventListener('click', async () => {
     $('recElapsed').textContent = '00:00:00';
     $('downloadZip').disabled = true;
 
-    // 録画開始時時刻を表示
     $('timeDisplayBox').classList.add('show');
     $('recStartTimeDisplay').textContent = formatLocalTime(recordingStartTime);
 
-    // ギャップと録画終了時刻（現在の映像時刻）の計算・更新
     const updateGapAndEndTime = () => {
       if (streamStartedAt && video) {
         const realElapsed = (Date.now() - streamStartedAt) / 1000;
@@ -934,7 +886,6 @@ $('startRec').addEventListener('click', async () => {
           $('streamGapDisplay').textContent = gap < 0 ? `マイナス${Math.abs(gap)}秒` : `プラス${gap}秒`;
         }
 
-        // 現在のHLS再生位置のローカル時刻（もし今停止した場合の末尾時刻）を計算
         const currentVideoTime = new Date(streamStartedAt + (video.currentTime * 1000));
         if (!isNaN(currentVideoTime.getTime())) {
           $('recEndTimeDisplay').textContent = formatLocalTime(currentVideoTime);
@@ -973,9 +924,6 @@ $('stopRec').addEventListener('click', () => {
   }
 });
 
-/* ============================================================
-   スクリーンショット（HLSのvideo要素からキャプチャ）
-============================================================ */
 $('snap').addEventListener('click', async () => {
   try {
     const video = $('recordSource');
@@ -1000,9 +948,6 @@ $('snap').addEventListener('click', async () => {
   }
 });
 
-/* ============================================================
-   ストリーム停止（HLSインスタンスの破棄）
-============================================================ */
 $('stopShare').addEventListener('click', () => {
   if (hlsInstance) {
     hlsInstance.destroy();
@@ -1014,9 +959,6 @@ $('stopShare').addEventListener('click', () => {
   showToast('ライブストリームを停止しました');
 });
 
-/* ============================================================
-   クイックメモ
-============================================================ */
 document.querySelectorAll('.quick').forEach(btn => {
   btn.addEventListener('click', () => {
     const label = btn.dataset.memo;
@@ -1033,7 +975,6 @@ document.querySelectorAll('.quick').forEach(btn => {
   });
 });
 
-/* メモ履歴クリア */
 $('clearMemos').addEventListener('click', () => {
   if (quickMemoEntries.length === 0) {
     showToast('クリアするメモがありません');
@@ -1061,9 +1002,6 @@ function renderMemoLog() {
   ).join('');
 }
 
-/* ============================================================
-   証拠ZIP生成
-============================================================ */
 $('downloadZip').addEventListener('click', async () => {
   if (!lastRecordingBlob) {
     alert('録画ファイルがありません。先に録画を完了してください。');
@@ -1098,9 +1036,6 @@ $('downloadZip').addEventListener('click', async () => {
   }
 });
 
-/* ============================================================
-   通報情報コピー
-============================================================ */
 $('copyReport').addEventListener('click', async () => {
   const clip = $('clipUrl').value.trim() || '(未入力)';
   const lines = [
