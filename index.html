@@ -335,10 +335,11 @@
       <button id="copyReport" class="btn btn-copy">通報情報をコピー</button>
     </div>
 
-    <!-- タイムスタンプ表示ボックス（配信経過時間） -->
+    <!-- タイムスタンプ表示ボックス -->
     <div class="time-display-box" id="timeDisplayBox">
-      <div><span class="time-label">録画開始時の配信タイムスタンプ:</span> <span class="time-value" id="recStartTimeDisplay">—</span></div>
-      <div><span class="time-label">現在の配信タイムスタンプ:</span> <span class="time-value" id="currentTimeDisplay">—</span></div>
+      <div><span class="time-label">録画開始時時刻:</span> <span class="time-value" id="recStartTimeDisplay">—</span></div>
+      <div><span class="time-label">録画終了時刻:</span> <span class="time-value" id="recEndTimeDisplay">—</span></div>
+      <div><span class="time-label">実際の配信とのギャップ:</span> <span class="time-value" id="streamGapDisplay">—</span></div>
     </div>
 
     <div class="info-grid">
@@ -628,6 +629,10 @@ function formatDuration(ms) {
   return `${h}:${m}:${s}`;
 }
 
+function formatLocalTime(date = new Date()) {
+  return date.toLocaleTimeString('ja-JP', { hour12: false });
+}
+
 function timestampForFile(date = new Date()) {
   const p = n => String(n).padStart(2, '0');
   return `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())}_`
@@ -659,14 +664,13 @@ async function sha256Hex(arrayBuffer) {
 }
 
 /* ============================================================
-   配信開始時刻の取得（タイムスタンプ計算用）
+   配信開始時刻の取得（ギャップ計算用）
 ============================================================ */
 async function fetchStreamStartedAt() {
   try {
     const res = await fetch(`${PROXY_BASE}/channel/tsubanyan`);
     if (!res.ok) return null;
     const data = await res.json();
-    // Kick APIのJSON構造に合わせて開始時刻を取得
     const startedAtStr = data?.livestream?.started_at || data?.livestream?.start_time;
     if (!startedAtStr) return null;
     return new Date(startedAtStr).getTime();
@@ -763,7 +767,6 @@ async function prepareHlsStream() {
     throw new Error('このブラウザはHLSに対応していません');
   }
 
-  // 録画専用のvideo要素からの音声再生を完全に防止する
   video.volume = 0;
   video.muted = true;
 
@@ -806,10 +809,8 @@ $('startRec').addEventListener('click', async () => {
     
     const video = await prepareHlsStream();
     
-    // 配信開始時刻を取得（タイムスタンプ計算用）
     streamStartedAt = await fetchStreamStartedAt();
     if (!streamStartedAt) {
-      // 取得できなかった場合は現在時刻を開始地点とみなす（フォールバック）
       streamStartedAt = Date.now();
     }
 
@@ -848,15 +849,12 @@ $('startRec').addEventListener('click', async () => {
       const arrayBuffer = await blob.arrayBuffer();
       const hash = await sha256Hex(arrayBuffer);
       
-      const streamElapsedMs = Date.now() - streamStartedAt;
       const meta = [
         '=== 証拠記録メタデータ（監視対象：バクソ） ===',
         `ページ読み込み: ${isoLocal(pageLoadedAt)}`,
         `録画開始: ${isoLocal(recordingStartTime)}`,
         `録画停止: ${isoLocal(recordingStopTime)}`,
         `録画長: ${formatDuration(recordingStopTime - recordingStartTime)}`,
-        `録画開始時の配信経過時間: ${formatDuration(recordingStartTime - streamStartedAt)}`,
-        `録画停止時の配信経過時間: ${formatDuration(streamElapsedMs)}`,
         `配信タイムスタンプ(手動メモ): ${memo}`,
         `対象URL: https://player.kick.com/tsubanyan`,
         `VOD URL: ${$('vodUrl').value.trim() || DEFAULT_VOD_URL}`,
@@ -884,6 +882,19 @@ $('startRec').addEventListener('click', async () => {
       $('stopRec').disabled = true;
       $('downloadZip').disabled = false;
       $('stopShare').disabled = false;
+
+      // 録画終了時刻（最後の映像の時刻）を計算して固定表示
+      if (streamStartedAt && video) {
+        const finalEndTime = new Date(streamStartedAt + (video.currentTime * 1000));
+        if (!isNaN(finalEndTime.getTime())) {
+          $('recEndTimeDisplay').textContent = formatLocalTime(finalEndTime);
+        } else {
+          $('recEndTimeDisplay').textContent = formatLocalTime(recordingStopTime);
+        }
+      } else {
+        $('recEndTimeDisplay').textContent = formatLocalTime(recordingStopTime);
+      }
+
       showToast('録画とメタデータを保存しました');
     };
 
@@ -894,19 +905,39 @@ $('startRec').addEventListener('click', async () => {
     $('recElapsed').textContent = '00:00:00';
     $('downloadZip').disabled = true;
 
-    // 配信タイムスタンプの初期化・表示
+    // 録画開始時時刻を表示
     $('timeDisplayBox').classList.add('show');
-    const startStreamElapsed = recordingStartTime.getTime() - streamStartedAt;
-    $('recStartTimeDisplay').textContent = formatDuration(startStreamElapsed);
-    $('currentTimeDisplay').textContent = formatDuration(startStreamElapsed);
+    $('recStartTimeDisplay').textContent = formatLocalTime(recordingStartTime);
+
+    // ギャップと録画終了時刻（現在の映像時刻）の計算・更新
+    const updateGapAndEndTime = () => {
+      if (streamStartedAt && video) {
+        const realElapsed = (Date.now() - streamStartedAt) / 1000;
+        const videoElapsed = video.currentTime;
+        const gap = Math.round(videoElapsed - realElapsed);
+        
+        if (isNaN(gap) || Math.abs(gap) > 86400) {
+          $('streamGapDisplay').textContent = '計測不可';
+        } else {
+          $('streamGapDisplay').textContent = gap < 0 ? `マイナス${Math.abs(gap)}秒` : `プラス${gap}秒`;
+        }
+
+        // 現在のHLS再生位置のローカル時刻（もし今停止した場合の末尾時刻）を計算
+        const currentVideoTime = new Date(streamStartedAt + (video.currentTime * 1000));
+        if (!isNaN(currentVideoTime.getTime())) {
+          $('recEndTimeDisplay').textContent = formatLocalTime(currentVideoTime);
+        }
+      } else {
+        $('streamGapDisplay').textContent = '計測不可';
+        $('recEndTimeDisplay').textContent = '計測不可';
+      }
+    };
+    updateGapAndEndTime();
 
     clearInterval(elapsedTimer);
     elapsedTimer = setInterval(() => {
-      $('recElapsed').textContent =
-        formatDuration(Date.now() - recordingStartTime.getTime());
-      // 現在の配信経過時間をリアルタイム更新
-      const currentStreamElapsed = Date.now() - streamStartedAt;
-      $('currentTimeDisplay').textContent = formatDuration(currentStreamElapsed);
+      $('recElapsed').textContent = formatDuration(Date.now() - recordingStartTime.getTime());
+      updateGapAndEndTime();
     }, 1000);
 
     mediaRecorder.start(1000);
