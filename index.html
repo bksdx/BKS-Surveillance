@@ -674,7 +674,6 @@ async function fetchStreamStartedAt() {
 
 let audioEnabled = false;
 
-/* iOSの場合はバックグラウンドでHLSストリームを準備しておく */
 if (isIOS) {
   window.addEventListener('load', () => {
     prepareHlsStream().catch(e => console.log('バックグラウンドHLS準備失敗:', e));
@@ -755,7 +754,6 @@ document.addEventListener('keydown', (e) => {
 async function prepareHlsStream() {
   const video = $('recordSource');
   
-  // すでに準備済みの場合はスキップ
   if (hlsInstance) {
     return video;
   }
@@ -1107,32 +1105,139 @@ $('downloadZip').addEventListener('click', async () => {
 });
 
 $('copyReport').addEventListener('click', async () => {
-  const clip = $('clipUrl').value.trim() || '(未入力)';
-  const lines = [
-    '=== Kick 通報情報 ===',
+  const clip = $('clipUrl').value.trim() || '(Not provided)';
+  const clipJa = $('clipUrl').value.trim() || '(未入力)';
+  const memo = $('streamTime').value.trim() || '(未入力)';
+  const vod = $('vodUrl').value.trim() || DEFAULT_VOD_URL;
+
+  const translations = {
+    "未成年者への性的搾取（CSAM）": "Sexual exploitation of minors (CSAM)",
+    "グルーミング・未成年への不当行為": "Grooming / Inappropriate conduct with minors",
+    "保護者監督なしの未成年出演": "Minors appearing without parental supervision",
+    "テロリズム・過激主義の扇動": "Terrorism / Incitement to extremism",
+    "ポルノ・裸体": "Pornography / Nudity",
+    "過度な性的描写": "Explicit sexual content",
+    "性的脅迫": "Sexual coercion",
+    "非合意の性的画像（ディープフェイク含む）": "Non-consensual sexual imagery (including deepfakes)",
+    "極度の暴力・グロ": "Extreme violence/gore",
+    "動物虐待": "Animal cruelty",
+    "スワッティング・虚偽通報": "Swatting / False reporting",
+    "危険な運転・危険行為": "Dangerous driving / Dangerous acts",
+    "公共での嫌がらせ": "Public harassment",
+    "ヘイトスピーチ": "Hate speech",
+    "組織的嫌がらせ": "Organized harassment",
+    "ドキシング（晒し）": "Doxxing",
+    "なりすまし": "Impersonation",
+    "自傷・自殺教唆": "Self-harm / Suicide incitement",
+    "薬物乱用": "Substance abuse",
+    "摂食障害の助長": "Promotion of eating disorders",
+    "詐欺・不正": "Fraud / Scams",
+    "ボット・エンゲージメント操作": "Botting / Engagement manipulation",
+    "誤情報": "Misinformation",
+    "未開示のAI生成コンテンツ": "Undisclosed AI-generated content",
+    "著作権侵害": "Copyright infringement",
+    "違法ギャンブル": "Illegal gambling",
+    "視聴者資金によるギャンブル": "Gambling with viewer funds",
+    "BAN回避": "Ban evasion",
+    "ゲームチート": "Game cheating",
+    "その他": "Other"
+  };
+
+  const zeroToleranceKeys = [
+    "未成年者への性的搾取（CSAM）",
+    "グルーミング・未成年への不当行為",
+    "保護者監督なしの未成年出演",
+    "テロリズム・過激主義の扇動"
+  ];
+
+  let hasZeroTolerance = false;
+  const enMemos = [];
+  const jaMemos = [];
+
+  quickMemoEntries.forEach(m => {
+    const jaLabel = m.label;
+    const enLabel = translations[jaLabel] || jaLabel;
+    
+    if (zeroToleranceKeys.includes(jaLabel)) {
+      hasZeroTolerance = true;
+    }
+    
+    enMemos.push(`[${m.time}] ${enLabel}`);
+    jaMemos.push(`[${m.time}] ${jaLabel}`);
+  });
+
+  const enSubject = hasZeroTolerance 
+    ? `[URGENT] Report: Zero Tolerance Violation - Tsubanyan` 
+    : `Report: Community Guidelines Violation - Tsubanyan`;
+  
+  const jaSubject = hasZeroTolerance 
+    ? `[重大な違反行為（ゼロトレランス違反）] コミュニティガイドライン違反の報告 - Tsubanyan` 
+    : `コミュニティガイドライン違反の報告 - Tsubanyan`;
+
+  const enLines = [
+    '=== Report to Kick Moderation Team ===',
+    '',
+    'To the Kick Moderation Team,',
+    '',
+    'I am writing to formally report a violation of the Kick Community Guidelines by the following streamer.',
+    '',
+    `Target: Tsubanyan`,
+    `Channel URL: https://kick.com/tsubanyan`,
+    `Recording Start: ${recordingStartTime ? isoLocal(recordingStartTime) : '(Not recorded)'}`,
+    `Stream Timestamp: ${memo}`,
+    `VOD URL: ${vod}`,
+    `Clip URL: ${clip}`,
+    '',
+    '--- Violation Categories and Timestamps ---',
+    ...enMemos,
+    ''
+  ];
+
+  const jaLines = [
+    '=== Kick運営御中 ===',
+    '',
+    '下記のKick配信者によるコミュニティガイドライン違反を報告します。',
+    '',
     `監視対象: Tsubanyan`,
     `チャンネルURL: https://kick.com/tsubanyan`,
     `録画開始: ${recordingStartTime ? isoLocal(recordingStartTime) : '(未録画)'}`,
-    `配信タイムスタンプ: ${$('streamTime').value.trim() || '(未入力)'}`,
-    `VOD URL: ${$('vodUrl').value.trim() || DEFAULT_VOD_URL}`,
-    `クリップURL: ${clip}`,
+    `配信タイムスタンプ: ${memo}`,
+    `VOD URL: ${vod}`,
+    `クリップURL: ${clipJa}`,
     '',
     '--- 規約違反項目と発生日時 ---',
-    ...quickMemoEntries.map(m => `[${m.time}] ${m.label}`),
+    ...jaMemos,
+    ''
+  ];
+
+  const noteLines = [
+    '--- 補足 (送信前に削除してください) ---',
+    '推奨件名（件名欄にコピー＆ペーストしてください）:',
+    enSubject
+  ];
+
+  if (hasZeroTolerance) {
+    noteLines.push('※重大な違反行為が選択されているため、件名を変更しています。');
+  }
+
+  noteLines.push(
     '',
-    '--- 補足 (送信前に削除してください)---',
     '上記クリップURLはKick上で手動生成したクリップです。',
     'スクリーンショット・録画ファイルは別途添付してください。'
-  ];
-  const text = lines.join('\n');
+  );
 
-  if (clip === '(未入力)') {
-    showToast('クリップURLが未入力です。必要に応じて入力してください');
-  }
+  const finalText = [
+    ...enLines,
+    '==================================================',
+    '上記を送信してください。英語件名は補足に記載されています。',
+    '',
+    ...jaLines,
+    ...noteLines
+  ].join('\n');
 
   if (navigator.clipboard && window.isSecureContext) {
     try {
-      await navigator.clipboard.writeText(text);
+      await navigator.clipboard.writeText(finalText);
       showToast('通報情報をコピーしました');
       return;
     } catch (e) { /* フォールバック */ }
@@ -1140,7 +1245,7 @@ $('copyReport').addEventListener('click', async () => {
 
   try {
     const ta = document.createElement('textarea');
-    ta.value = text;
+    ta.value = finalText;
     ta.style.position = 'fixed';
     ta.style.opacity = '0';
     document.body.appendChild(ta);
@@ -1150,7 +1255,7 @@ $('copyReport').addEventListener('click', async () => {
     document.body.removeChild(ta);
     showToast('通報情報をコピーしました');
   } catch (err) {
-    alert('コピーに失敗しました。お手数ですが手動でコピーしてください:\n\n' + text);
+    alert('コピーに失敗しました。お手数ですが手動でコピーしてください:\n\n' + finalText);
   }
 });
 </script>
