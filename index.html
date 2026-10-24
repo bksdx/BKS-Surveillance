@@ -126,20 +126,22 @@
     .btn-guide { background: #6a1b9a; color: #fff; }
     .btn-clear { background: #555; color: #fff; }
 
-    /* タイムスタンプ表示ボックス（赤字） */
+    /* タイムスタンプ表示ボックス（赤字・録画情報の集約） */
     .time-display-box {
       display: none;
       background: #1a0000;
       border: 1px solid var(--red);
       border-radius: 6px;
-      padding: 10px 14px;
+      padding: 12px 16px;
       margin-bottom: 12px;
       font-size: 14px;
       font-family: monospace;
-      line-height: 1.6;
+      line-height: 1.8;
     }
     .time-display-box.show { display: block; }
     .time-display-box .time-label {
+      display: inline-block;
+      width: 180px;
       color: var(--red);
       font-weight: bold;
     }
@@ -148,16 +150,6 @@
       font-weight: bold;
       font-size: 16px;
     }
-
-    .info-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 8px;
-      font-size: 13px;
-      margin-bottom: 12px;
-    }
-    .info-grid span { color: var(--muted); }
-    .info-grid strong { color: var(--text); font-variant-numeric: tabular-nums; }
 
     .memo-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 12px; }
     .memo-row label { font-size: 13px; color: var(--muted); }
@@ -279,7 +271,7 @@
       .evidence-tools { padding: 12px; }
       .btn-row { gap: 8px; }
       .btn-row > .btn { flex: 1 1 calc(50% - 8px); min-width: 140px; font-size: 14px; padding: 12px 10px; }
-      .info-grid { grid-template-columns: 1fr; gap: 4px; }
+      .time-display-box .time-label { width: 140px; font-size: 13px; }
       .notice-box { padding: 12px 14px; }
       .notice-box h2 { font-size: 16px; }
       .notice-box ol { font-size: 13px; }
@@ -335,19 +327,14 @@
       <button id="copyReport" class="btn btn-copy">通報情報をコピー</button>
     </div>
 
-    <!-- タイムスタンプ表示ボックス -->
+    <!-- タイムスタンプ表示ボックス（録画情報の一元管理） -->
     <div class="time-display-box" id="timeDisplayBox">
+      <div><span class="time-label">録画状態:</span> <span class="time-value" id="recStatus">待機中</span></div>
       <div><span class="time-label">録画開始時時刻:</span> <span class="time-value" id="recStartTimeDisplay">—</span></div>
       <div><span class="time-label">録画終了時刻:</span> <span class="time-value" id="recEndTimeDisplay">—</span></div>
       <div><span class="time-label">実際の配信とのギャップ:</span> <span class="time-value" id="streamGapDisplay">—</span></div>
-    </div>
-
-    <div class="info-grid">
-      <div><span>録画状態:</span> <strong id="recStatus">待機中</strong></div>
-      <div><span>録画開始:</span> <strong id="recStartLabel">—</strong></div>
-      <div><span>録画経過:</span> <strong id="recElapsed">00:00:00</strong></div>
-      <div><span>監視開始からの経過:</span> <strong id="monitorElapsed">00:00:00</strong></div>
-      <div><span>ページ読み込み:</span> <strong id="pageLoadedLabel">—</strong></div>
+      <div><span class="time-label">録画経過:</span> <span class="time-value" id="recElapsed">00:00:00</span></div>
+      <div><span class="time-label">監視開始からの経過:</span> <span class="time-value" id="monitorElapsed">00:00:00</span></div>
     </div>
 
     <div class="memo-row">
@@ -793,9 +780,8 @@ function pickMimeType() {
 }
 
 /* ============================================================
-   経過表示
+   監視開始からの経過表示（常時）
 ============================================================ */
-$('pageLoadedLabel').textContent = isoLocal(pageLoadedAt);
 setInterval(() => {
   $('monitorElapsed').textContent = formatDuration(Date.now() - pageLoadedAt.getTime());
 }, 1000);
@@ -900,7 +886,6 @@ $('startRec').addEventListener('click', async () => {
 
     recordingStartTime = new Date();
     recordingStopTime = null;
-    $('recStartLabel').textContent = isoLocal(recordingStartTime);
     $('recStatus').textContent = '録画中...（問題箇所だけ録画してください）';
     $('recElapsed').textContent = '00:00:00';
     $('downloadZip').disabled = true;
