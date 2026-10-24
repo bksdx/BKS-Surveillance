@@ -1107,7 +1107,7 @@ $('downloadZip').addEventListener('click', async () => {
 $('copyReport').addEventListener('click', async () => {
   const clip = $('clipUrl').value.trim() || '(Not provided)';
   const clipJa = $('clipUrl').value.trim() || '(未入力)';
-  const memo = $('streamTime').value.trim() || '(未入力)';
+  const memo = $('streamTime').value.trim() || '';
   const vod = $('vodUrl').value.trim() || DEFAULT_VOD_URL;
 
   const translations = {
@@ -1186,16 +1186,24 @@ $('copyReport').addEventListener('click', async () => {
     enIntro,
     '',
     `Target: Tsubanyan`,
-    `Channel URL: https://kick.com/tsubanyan`,
-    `Recording Start: ${recordingStartTime ? isoLocal(recordingStartTime) : '(Not recorded)'}`,
-    `Stream Timestamp: ${memo}`,
+    `Channel URL: https://kick.com/tsubanyan`
+  ];
+
+  if (recordingStartTime) {
+    enLines.push(`Recording Start: ${isoLocal(recordingStartTime)}`);
+  }
+  if (memo) {
+    enLines.push(`Stream Timestamp: ${memo}`);
+  }
+
+  enLines.push(
     `VOD URL: ${vod}`,
     `Clip URL: ${clip}`,
     '',
     '--- Violation Categories and Timestamps ---',
     ...enMemos,
     ''
-  ];
+  );
 
   const middleLines = [
     '==================================================',
@@ -1223,15 +1231,23 @@ $('copyReport').addEventListener('click', async () => {
     jaIntro,
     '',
     `監視対象: Tsubanyan`,
-    `チャンネルURL: https://kick.com/tsubanyan`,
-    `録画開始: ${recordingStartTime ? isoLocal(recordingStartTime) : '(未録画)'}`,
-    `配信タイムスタンプ: ${memo}`,
+    `チャンネルURL: https://kick.com/tsubanyan`
+  ];
+
+  if (recordingStartTime) {
+    jaLines.push(`録画開始: ${isoLocal(recordingStartTime)}`);
+  }
+  if (memo) {
+    jaLines.push(`配信タイムスタンプ: ${memo}`);
+  }
+
+  jaLines.push(
     `VOD URL: ${vod}`,
     `クリップURL: ${clipJa}`,
     '',
     '--- 規約違反項目と発生日時 ---',
     ...jaMemos
-  ];
+  );
 
   const finalText = [
     ...enLines,
