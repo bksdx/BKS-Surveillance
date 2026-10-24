@@ -926,7 +926,7 @@ $('clearMemos').addEventListener('click', () => {
 function renderMemoLog() {
   const log = $('memoLog');
   if (quickMemoEntries.length === 0) {
-    log.innerHTML = '<p style="color:var(--muted);">クイックメモを押すと、ここに自動タイムスタンプ付きで記録されます。</p>';
+    log.innerHTML = '<p style="color:var(--muted);">クイックメモを押すと、ここにタイムスタンプ付きで記録されます。</p>';
     return;
   }
   log.innerHTML = quickMemoEntries.map(m =>
