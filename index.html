@@ -313,7 +313,6 @@
     <span class="note" id="audioNote">
       ブラウザの自動再生ポリシーにより、初期状態はミュートで自動再生されます。
       ボタンを押すと音声の有効／無効を切り替えられます。
-      プレイヤー内のスピーカーアイコンでも解除できます。
     </span>
   </div>
 
@@ -572,7 +571,6 @@ const DEFAULT_VOD_URL = 'https://kick.com/tsubanyan/videos';
 
 let hlsInstance = null;
 
-/* iOS判定を追加 */
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
               (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
@@ -588,14 +586,6 @@ const canCapture =
 if (isMobile || !canCapture) {
   $('mobileNotice').classList.add('show');
   ['startRec', 'snap', 'stopShare'].forEach(id => { $(id).disabled = true; });
-}
-
-/* iOSの場合、音声ボタンの表示と案内文を変更 */
-if (isIOS) {
-  $('enableAudio').textContent = 'プレイヤー内のスピーカーをタップ';
-  $('audioNote').innerHTML =
-    'iOSの仕様により、親ページのボタンから音声を有効にすることはできません。<br>' +
-    'プレイヤー内の<strong>スピーカーアイコン</strong>を直接タップして音声を有効にしてください。';
 }
 
 try {
@@ -684,10 +674,45 @@ async function fetchStreamStartedAt() {
 
 let audioEnabled = false;
 
-$('enableAudio').addEventListener('click', () => {
-  /* iOSの場合はiframeの再読み込みを行わず、案内を表示する */
+/* iOSの場合はバックグラウンドでHLSストリームを準備しておく */
+if (isIOS) {
+  window.addEventListener('load', () => {
+    prepareHlsStream().catch(e => console.log('バックグラウンドHLS準備失敗:', e));
+  });
+}
+
+$('enableAudio').addEventListener('click', async () => {
   if (isIOS) {
-    showToast('プレイヤー内のスピーカーアイコンをタップしてください');
+    const video = $('recordSource');
+    const btn = $('enableAudio');
+    
+    if (!hlsInstance) {
+      btn.textContent = '読み込み中...';
+      try {
+        await prepareHlsStream();
+      } catch (e) {
+        alert('音声の取得に失敗しました: ' + e.message);
+        btn.textContent = '音声を有効にする';
+        return;
+      }
+    }
+    
+    audioEnabled = !audioEnabled;
+    
+    if (audioEnabled) {
+      video.muted = false;
+      video.volume = 1;
+      video.play().catch(e => console.warn(e));
+      btn.textContent = '音声を無効にする';
+      btn.classList.add('audio-on');
+      showToast('音声を有効にしました（※映像と音声にズレが生じる場合があります）');
+    } else {
+      video.muted = true;
+      video.volume = 0;
+      btn.textContent = '音声を有効にする';
+      btn.classList.remove('audio-on');
+      showToast('音声を無効にしました');
+    }
     return;
   }
 
@@ -728,6 +753,13 @@ document.addEventListener('keydown', (e) => {
 });
 
 async function prepareHlsStream() {
+  const video = $('recordSource');
+  
+  // すでに準備済みの場合はスキップ
+  if (hlsInstance) {
+    return video;
+  }
+
   const res = await fetch(`${PROXY_BASE}/playback/tsubanyan`);
   if (!res.ok) throw new Error('playback-urlの取得に失敗');
   const data = await res.json();
@@ -737,9 +769,6 @@ async function prepareHlsStream() {
     playbackUrl = (typeof data.data === 'string') ? data.data : data.data.playback_url;
   }
   if (!playbackUrl) throw new Error('playback_urlが見つかりません');
-
-  const video = $('recordSource');
-  if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
 
   if (window.Hls && Hls.isSupported()) {
     hlsInstance = new Hls({
