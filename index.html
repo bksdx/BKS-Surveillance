@@ -335,10 +335,10 @@
       <button id="copyReport" class="btn btn-copy">通報情報をコピー</button>
     </div>
 
-    <!-- タイムスタンプ表示ボックス -->
+    <!-- タイムスタンプ表示ボックス（配信経過時間） -->
     <div class="time-display-box" id="timeDisplayBox">
-      <div><span class="time-label">録画開始時刻:</span> <span class="time-value" id="recStartTimeDisplay">—</span></div>
-      <div><span class="time-label" id="currentTimeLabel">現在時刻:</span> <span class="time-value" id="currentTimeDisplay">—</span></div>
+      <div><span class="time-label">録画開始時の配信タイムスタンプ:</span> <span class="time-value" id="recStartTimeDisplay">—</span></div>
+      <div><span class="time-label">現在の配信タイムスタンプ:</span> <span class="time-value" id="currentTimeDisplay">—</span></div>
     </div>
 
     <div class="info-grid">
@@ -583,6 +583,7 @@ let recordedChunks = [];
 let lastRecordingBlob = null;
 let lastRecordingName = '';
 let quickMemoEntries = [];
+let streamStartedAt = null; // 配信開始時刻のタイムスタンプ（ミリ秒）
 
 /* Cloudflare WorkersのプロキシURL */
 const PROXY_BASE = 'https://kick-proxy.bakusodx.workers.dev';
@@ -627,11 +628,6 @@ function formatDuration(ms) {
   return `${h}:${m}:${s}`;
 }
 
-/* ローカル時刻を HH:MM:SS 形式で返す */
-function formatLocalTime(date = new Date()) {
-  return date.toLocaleTimeString('ja-JP', { hour12: false });
-}
-
 function timestampForFile(date = new Date()) {
   const p = n => String(n).padStart(2, '0');
   return `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())}_`
@@ -660,6 +656,23 @@ async function sha256Hex(arrayBuffer) {
   const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
   return [...new Uint8Array(hashBuffer)]
     .map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/* ============================================================
+   配信開始時刻の取得（タイムスタンプ計算用）
+============================================================ */
+async function fetchStreamStartedAt() {
+  try {
+    const res = await fetch(`${PROXY_BASE}/channel/tsubanyan`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    // Kick APIのJSON構造に合わせて開始時刻を取得
+    const startedAtStr = data?.livestream?.started_at || data?.livestream?.start_time;
+    if (!startedAtStr) return null;
+    return new Date(startedAtStr).getTime();
+  } catch (e) {
+    return null;
+  }
 }
 
 /* ============================================================
@@ -793,8 +806,13 @@ $('startRec').addEventListener('click', async () => {
     
     const video = await prepareHlsStream();
     
-    // 録画用ストリームから音声トラックを取得するため、一時的にミュートを解除する必要はない
-    // （muted でも captureStream() の音声トラックは有効）
+    // 配信開始時刻を取得（タイムスタンプ計算用）
+    streamStartedAt = await fetchStreamStartedAt();
+    if (!streamStartedAt) {
+      // 取得できなかった場合は現在時刻を開始地点とみなす（フォールバック）
+      streamStartedAt = Date.now();
+    }
+
     const stream = video.captureStream ? video.captureStream() : video.mozCaptureStream();
 
     const mimeType = pickMimeType();
@@ -829,13 +847,16 @@ $('startRec').addEventListener('click', async () => {
       const clip = $('clipUrl').value.trim() || '(未入力)';
       const arrayBuffer = await blob.arrayBuffer();
       const hash = await sha256Hex(arrayBuffer);
+      
+      const streamElapsedMs = Date.now() - streamStartedAt;
       const meta = [
         '=== 証拠記録メタデータ（監視対象：バクソ） ===',
         `ページ読み込み: ${isoLocal(pageLoadedAt)}`,
         `録画開始: ${isoLocal(recordingStartTime)}`,
         `録画停止: ${isoLocal(recordingStopTime)}`,
         `録画長: ${formatDuration(recordingStopTime - recordingStartTime)}`,
-        `監視開始からの経過: ${formatDuration(recordingStartTime - pageLoadedAt)}`,
+        `録画開始時の配信経過時間: ${formatDuration(recordingStartTime - streamStartedAt)}`,
+        `録画停止時の配信経過時間: ${formatDuration(streamElapsedMs)}`,
         `配信タイムスタンプ(手動メモ): ${memo}`,
         `対象URL: https://player.kick.com/tsubanyan`,
         `VOD URL: ${$('vodUrl').value.trim() || DEFAULT_VOD_URL}`,
@@ -863,11 +884,6 @@ $('startRec').addEventListener('click', async () => {
       $('stopRec').disabled = true;
       $('downloadZip').disabled = false;
       $('stopShare').disabled = false;
-      
-      // タイムスタンプ表示を停止状態に更新
-      $('currentTimeLabel').textContent = '録画終了時刻:';
-      $('currentTimeDisplay').textContent = formatLocalTime(recordingStopTime);
-      
       showToast('録画とメタデータを保存しました');
     };
 
@@ -878,18 +894,19 @@ $('startRec').addEventListener('click', async () => {
     $('recElapsed').textContent = '00:00:00';
     $('downloadZip').disabled = true;
 
-    // タイムスタンプ表示の初期化・表示
+    // 配信タイムスタンプの初期化・表示
     $('timeDisplayBox').classList.add('show');
-    $('recStartTimeDisplay').textContent = formatLocalTime(recordingStartTime);
-    $('currentTimeLabel').textContent = '現在時刻:';
-    $('currentTimeDisplay').textContent = formatLocalTime(new Date());
+    const startStreamElapsed = recordingStartTime.getTime() - streamStartedAt;
+    $('recStartTimeDisplay').textContent = formatDuration(startStreamElapsed);
+    $('currentTimeDisplay').textContent = formatDuration(startStreamElapsed);
 
     clearInterval(elapsedTimer);
     elapsedTimer = setInterval(() => {
       $('recElapsed').textContent =
         formatDuration(Date.now() - recordingStartTime.getTime());
-      // 録画中は現在時刻をリアルタイム更新
-      $('currentTimeDisplay').textContent = formatLocalTime(new Date());
+      // 現在の配信経過時間をリアルタイム更新
+      const currentStreamElapsed = Date.now() - streamStartedAt;
+      $('currentTimeDisplay').textContent = formatDuration(currentStreamElapsed);
     }, 1000);
 
     mediaRecorder.start(1000);
