@@ -96,6 +96,20 @@
     }
     .evidence-tools h3 { margin: 0 0 12px; font-size: 16px; color: var(--red); }
 
+    /* リアルタイム時計 */
+    .realtime-clock {
+      font-family: monospace;
+      font-size: 15px;
+      color: var(--text);
+      background: #000;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 8px 12px;
+      margin-bottom: 12px;
+      text-align: center;
+      letter-spacing: 0.05em;
+    }
+
     .mobile-notice {
       display: none;
       background: #2a1a00;
@@ -311,6 +325,9 @@
   <div class="evidence-tools">
     <h3>証拠記録ツール</h3>
 
+    <!-- リアルタイムの年月日時刻 -->
+    <div class="realtime-clock" id="realtimeClock">----年--月--日 --:--:--</div>
+
     <div id="mobileNotice" class="mobile-notice">
       <strong>スマートフォンでご利用の場合</strong><br>
       ブラウザの制限により、このツールの録画・スクリーンショット機能はスマホでは動作しません。
@@ -334,7 +351,6 @@
       <div><span class="time-label">録画終了時刻:</span> <span class="time-value" id="recEndTimeDisplay">—</span></div>
       <div><span class="time-label">実際の配信とのギャップ:</span> <span class="time-value" id="streamGapDisplay">—</span></div>
       <div><span class="time-label">録画経過:</span> <span class="time-value" id="recElapsed">00:00:00</span></div>
-      <div><span class="time-label">監視開始からの経過:</span> <span class="time-value" id="monitorElapsed">00:00:00</span></div>
     </div>
 
     <div class="memo-row">
@@ -620,6 +636,16 @@ function formatLocalTime(date = new Date()) {
   return date.toLocaleTimeString('ja-JP', { hour12: false });
 }
 
+function formatRealtimeClock(date = new Date()) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  const hh = String(date.getHours()).padStart(2, '0');
+  const mm = String(date.getMinutes()).padStart(2, '0');
+  const ss = String(date.getSeconds()).padStart(2, '0');
+  return `${y}年${m}月${d}日 ${hh}:${mm}:${ss}`;
+}
+
 function timestampForFile(date = new Date()) {
   const p = n => String(n).padStart(2, '0');
   return `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())}_`
@@ -649,6 +675,14 @@ async function sha256Hex(arrayBuffer) {
   return [...new Uint8Array(hashBuffer)]
     .map(b => b.toString(16).padStart(2, '0')).join('');
 }
+
+/* ============================================================
+   リアルタイム時計の更新
+============================================================ */
+setInterval(() => {
+  $('realtimeClock').textContent = formatRealtimeClock();
+}, 1000);
+$('realtimeClock').textContent = formatRealtimeClock();
 
 /* ============================================================
    配信開始時刻の取得（ギャップ計算用）
@@ -778,13 +812,6 @@ function pickMimeType() {
   }
   return '';
 }
-
-/* ============================================================
-   監視開始からの経過表示（常時）
-============================================================ */
-setInterval(() => {
-  $('monitorElapsed').textContent = formatDuration(Date.now() - pageLoadedAt.getTime());
-}, 1000);
 
 /* ============================================================
    録画（HLSストリームから直接キャプチャ）
