@@ -281,7 +281,7 @@
 
   <!-- 2. 証拠記録ツール -->
   <div class="evidence-tools">
-    <h3>証拠記録ツール（監視対象：バクソ）</h3>
+    <h3>証拠記録ツール</h3>
 
     <div id="mobileNotice" class="mobile-notice">
       <strong>スマートフォンでご利用の場合</strong><br>
@@ -663,7 +663,25 @@ document.addEventListener('keydown', (e) => {
 });
 
 /* ============================================================
-   画面共有ストリーム管理
+   録画用MIMEタイプ選択（H.264優先でコマ落ちを抑える）
+============================================================ */
+function pickMimeType() {
+  const candidates = [
+    'video/webm;codecs=h264,opus',
+    'video/webm;codecs=vp8,opus',
+    'video/webm;codecs=vp9,opus',
+    'video/webm'
+  ];
+  for (const c of candidates) {
+    try {
+      if (MediaRecorder.isTypeSupported(c)) return c;
+    } catch (e) { /* noop */ }
+  }
+  return '';
+}
+
+/* ============================================================
+   画面共有ストリーム管理（720p / 30fps上限）
 ============================================================ */
 function isCaptureLive() {
   return displayStream
@@ -678,7 +696,11 @@ async function ensureCaptureStream() {
   if (isCaptureLive()) return displayStream;
 
   const stream = await navigator.mediaDevices.getDisplayMedia({
-    video: { frameRate: 30 },
+    video: {
+      frameRate: { ideal: 30, max: 30 },
+      width:    { ideal: 1280, max: 1280 },
+      height:   { ideal: 720,  max: 720 }
+    },
     audio: true
   });
   displayStream = stream;
@@ -720,14 +742,21 @@ setInterval(() => {
 }, 1000);
 
 /* ============================================================
-   録画
+   録画（コマ落ち対策版）
 ============================================================ */
 $('startRec').addEventListener('click', async () => {
   try {
     const stream = await ensureCaptureStream();
     videoTrack = stream.getVideoTracks()[0];
 
-    mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9,opus' });
+    const mimeType = pickMimeType();
+    const options = {
+      videoBitsPerSecond: 3_000_000,
+      audioBitsPerSecond: 128_000
+    };
+    if (mimeType) options.mimeType = mimeType;
+
+    mediaRecorder = new MediaRecorder(stream, options);
     recordedChunks = [];
 
     mediaRecorder.ondataavailable = e => {
@@ -764,6 +793,7 @@ $('startRec').addEventListener('click', async () => {
         `VOD URL: ${$('vodUrl').value.trim() || DEFAULT_VOD_URL}`,
         `クリップURL: ${clip}`,
         `ファイル名: ${lastRecordingName}`,
+        `MIMEタイプ: ${mimeType || '(ブラウザ既定)'}`,
         `SHA-256: ${hash}`,
         '',
         '--- クイックメモ履歴 ---',
@@ -801,7 +831,7 @@ $('startRec').addEventListener('click', async () => {
         formatDuration(Date.now() - recordingStartTime.getTime());
     }, 1000);
 
-    mediaRecorder.start();
+    mediaRecorder.start(1000);
     $('startRec').disabled = true;
     $('stopRec').disabled = false;
     $('stopShare').disabled = true;
